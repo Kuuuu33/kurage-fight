@@ -185,7 +185,7 @@
   @media (prefers-reduced-motion: reduce) { .tap-hint { animation: none; } }
 
   /* ---- Home aquarium ---- */
-  .home { justify-content: space-between; }
+  .home { justify-content: space-between; padding-top: calc(20px + env(safe-area-inset-top)); padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
   .home-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .home-stats { display: flex; gap: 8px; }
   .home-mid { pointer-events: none; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
