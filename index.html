@@ -249,6 +249,24 @@
   #ex-prev-canvas { border-radius: 16px; border: 1px solid rgba(255,255,255,.12); }
   .prev-name { font-size: 19px; font-weight: 800; color: #eaf6ff; }
   .prev-cost { font-size: 15px; font-weight: 700; color: var(--score-gold); }
+  /* ---- minigames (こけとり / ふかうみつり) ---- */
+  .mini { justify-content: flex-end; gap: 10px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .mini-card {
+    background: var(--panel); border: 1.5px solid var(--panel-line); border-radius: 16px; padding: 11px 14px;
+    width: min(94%, 400px); display: flex; flex-direction: column; gap: 8px; backdrop-filter: blur(4px);
+  }
+  .mini-card.hidden { display: none; }
+  .mini-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800; color: var(--score-gold); }
+  .mini-sub { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--text-dim); }
+  .mini-time { font-variant-numeric: tabular-nums; color: #eaf6ff; font-weight: 800; }
+  .mini-time.warn { color: var(--danger); }
+  .mini-res { align-items: center; }
+  .mini-res .big { font-size: 32px; font-weight: 800; color: var(--glow-cyan); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .mini-res .rw { font-size: 13px; font-weight: 700; color: #eaf6ff; line-height: 1.75; }
+  .catch-icon { font-size: 58px; line-height: 1; filter: drop-shadow(0 6px 18px rgba(92,232,213,.35)); }
+  .catch-name { font-size: 19px; font-weight: 800; color: #eaf6ff; }
+  .catch-tier { font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+
   #rename-modal { pointer-events: auto; background: rgba(4,10,20,.78); backdrop-filter: blur(3px); z-index: 60; }
   #rename-input { width: min(74vw,240px); font-family: inherit; font-size: 22px; font-weight: 800; text-align: center; color: #eaf6ff; background: rgba(4,14,26,.6); border: 1.5px solid var(--panel-line); border-radius: 12px; padding: 12px 14px; }
   #rename-input:focus { outline: 2px solid var(--glow-cyan); outline-offset: 1px; }
@@ -339,6 +357,7 @@
       <button class="btn primary start-btn" id="home-play">▶ あそぶ</button>
       <div class="btn-row">
         <button class="btn small" id="home-hatch">🥚 タマゴ</button>
+        <button class="btn small" id="home-fish">🎣 つり</button>
         <button class="btn small" id="home-shop">🪼 むかえる</button>
         <button class="btn small" id="home-exchange">🎀 こうかん</button>
         <button class="btn small" id="home-upg">⚡ つよくする</button>
@@ -362,12 +381,44 @@
     <div class="btn-row">
       <button class="btn" id="care-feed">🍤 ごはん（エサ<span id="care-food">0</span>）</button>
       <button class="btn" id="care-playbtn">🎾 あそぶ</button>
-      <button class="btn" id="care-cleanbtn">🧼 そうじ</button>
+      <button class="btn" id="care-cleanbtn">🧼 こけとり</button>
     </div>
     <div class="acc-row" id="care-acc"></div>
     <button class="btn" id="care-active">この子を出撃メンバーにする</button>
     <button class="btn primary start-btn" id="care-go">▶ この子であそぶ</button>
     <div class="btn-row"><button class="btn primary shop-back">もどる</button></div>
+  </div>
+
+  <!-- Minigame: こけとり -->
+  <div id="scrub" class="overlay mini hidden">
+    <div class="mini-card" id="scrub-play">
+      <div class="mini-head"><span>🧼 こけとり</span><span class="mini-time" id="scrub-time">15</span></div>
+      <div class="pbar"><i id="scrub-fill" style="width:0%"></i></div>
+      <div class="mini-sub"><span>ガラスを こすって コケをおとそう！</span><span><b id="scrub-pct">0</b>%</span></div>
+      <div class="btn-row"><button class="btn small" id="scrub-quit">やめる</button></div>
+    </div>
+    <div class="mini-card mini-res hidden" id="scrub-done">
+      <div class="mini-head" style="justify-content:center">🧼 こけとり けっか</div>
+      <div class="big"><span id="scrub-score">0</span>%</div>
+      <div class="rw" id="scrub-reward"></div>
+      <div class="btn-row"><button class="btn primary" id="scrub-back">もどる</button></div>
+    </div>
+  </div>
+
+  <!-- Minigame: ふかうみつり -->
+  <div id="fishing" class="overlay mini hidden">
+    <div class="mini-card" id="fish-play">
+      <div class="mini-head"><span>🎣 ふかうみつり</span><span class="mini-time">1日1回</span></div>
+      <div class="mini-sub" style="justify-content:center;text-align:center">ゲージが まんなかで タップ！　まんなかほど 大あたり</div>
+      <div class="btn-row"><button class="btn small" id="fish-quit">やめる</button></div>
+    </div>
+    <div class="mini-card mini-res hidden" id="fish-done">
+      <div class="catch-icon" id="fish-icon">🐟</div>
+      <div class="catch-name" id="fish-name">なまえ</div>
+      <div class="catch-tier" id="fish-tier"></div>
+      <div class="rw" id="fish-reward"></div>
+      <div class="btn-row"><button class="btn primary" id="fish-back">もどる</button></div>
+    </div>
   </div>
 
   <!-- Hatch egg -->
@@ -508,9 +559,11 @@
   const selEl = document.getElementById('select');
   const openingEl = document.getElementById('opening');
   const exEl = document.getElementById('exchange');
+  const scrubEl = document.getElementById('scrub');
+  const fishEl = document.getElementById('fishing');
   const toastEl = document.getElementById('toast');
 
-  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme'];
+  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish'];
   // Durable storage: localStorage (primary) + IndexedDB (backup mirror).
   // Ask the browser to keep our data across restarts / not auto-evict it.
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
@@ -797,6 +850,13 @@
   wrap.addEventListener('pointerdown',(e)=>{
     if(e.target.closest('button, [role="button"], .skin-card, .claim-btn, .up-buy, .acc-chip, .ex-btn, .ex-tab, textarea')) return;
     if(state==='opening'){ enterFromOpening(); return; }
+    if(state==='scrub'){
+      if(!scrubActive) return;
+      e.preventDefault(); ensureAudio();
+      scrubDragging=true; scrubPrev=null; scrubPointer(e);
+      return;
+    }
+    if(state==='fishing'){ e.preventDefault(); ensureAudio(); if(fishPhase==='ready') fishStop(); return; }
     if(state==='aquarium'){
       const rect=cv.getBoundingClientRect(); const px=e.clientX-rect.left, py=e.clientY-rect.top;
       let hit=null, hd=1e9;
@@ -808,10 +868,20 @@
     e.preventDefault(); ensureAudio();
     if(state==='play') flap(); else doRevive();
   });
+  // drag to scrub the glass (こけとり)
+  wrap.addEventListener('pointermove',(e)=>{
+    if(state!=='scrub'||!scrubDragging||!scrubActive) return;
+    e.preventDefault(); scrubPointer(e);
+  });
+  const endScrubDrag=()=>{ scrubDragging=false; scrubPrev=null; };
+  wrap.addEventListener('pointerup',endScrubDrag);
+  wrap.addEventListener('pointercancel',endScrubDrag);
+  wrap.addEventListener('pointerleave',endScrubDrag);
   // Keyboard (desktop): space / up also starts from the title & game-over screens for convenience.
   window.addEventListener('keydown',(e)=>{
     if(e.code!=='Space' && e.code!=='ArrowUp') return;
     e.preventDefault(); ensureAudio();
+    if(state==='fishing'){ if(fishPhase==='ready') fishStop(); return; }
     if(state==='title'||state==='over') startRun();
     else if(state==='play') flap();
     else if(state==='revive') doRevive();
@@ -1440,6 +1510,8 @@
     document.getElementById('home-food').textContent=food;
     document.getElementById('home-count').textContent=jellies?jellies.length:0;
     document.getElementById('home-mute').textContent=muted?'🔇':'🔊';
+    const fb=document.getElementById('home-fish');
+    if(fb){ const av=fishAvailable(); fb.textContent=av?'🎣 つり ✨':'🎣 つり済'; fb.disabled=!av; }
     renderDaily(document.getElementById('home-daily-slot'));
   }
   function showHome(){
@@ -1474,7 +1546,7 @@
   function careLevelToast(j,up){ if(up>0){ sfx.win(); showToast('⭐ '+j.name+' が レベル'+levelOf(j)+' に！'); refreshHome(); } }
   function careFeed(){ const j=caringJelly(); if(!j) return; if(food<=0){ showToast('エサがないよ。あそぶと手に入る！'); return; } if(j.hunger>=100){ showToast('おなかいっぱいみたい'); return; } food-=1; saveFood(); j.hunger=clampStat(j.hunger+34); const up=addExp(j,10); sfx.pearl(); vibrate(20); renderCare(); careLevelToast(j,up); }
   function carePlay(){ const j=caringJelly(); if(!j) return; if(j.mood>=100){ showToast('ごきげんそのもの！'); return; } j.mood=clampStat(j.mood+30); const up=addExp(j,8); sfx.coin(); vibrate(20); renderCare(); careLevelToast(j,up); }
-  function careClean(){ const j=caringJelly(); if(!j) return; if(j.clean>=100){ showToast('ピカピカだよ'); return; } j.clean=clampStat(j.clean+40); const up=addExp(j,7); sfx.power(); vibrate(20); renderCare(); careLevelToast(j,up); }
+  function careClean(){ const j=caringJelly(); if(!j) return; if(j.clean>=100){ showToast('ピカピカだよ'); return; } openScrub(); }
   function careRename(){ const j=caringJelly(); if(!j) return; openRename(j); }
   function openRename(j){
     const modal=document.getElementById('rename-modal'); const input=document.getElementById('rename-input');
@@ -1505,6 +1577,263 @@
     renderHatch(); refreshHome();
   }
   function adoptSkin(skinId){ if(pearls<ADOPT_COST){ showToast('真珠が足りないよ（'+ADOPT_COST+'ひつよう）'); return false; } pearls-=ADOPT_COST; store.set('kurage-pearls',String(pearls)); pearlHud.textContent=pearls; const j=makeJelly(skinId); jellies.push(j); saveJellies(); sfx.win(); vibrate(30); showToast('🥚 '+j.name+'（'+skinById(skinId).name+'）を むかえた！'); refreshHome(); return true; }
+
+  // ===================== ミニゲーム①：こけとり =====================
+  // 水槽のガラスをこすってコケを落とす。達成率で「きれい」が回復し、真珠とけいけんちも少し。
+  const SCRUB_SECONDS = 15;
+  let scrubGrid=null, scrubCols=0, scrubRows=0, scrubTotal=0;
+  let scrubFrames=0, scrubActive=false, scrubProgress=0, scrubDragging=false, scrubPrev=null;
+  let scrubSfxT=-99, scrubSparks=[], scrubHudT=0;
+
+  // The glass follows the aquarium window, so geometry is derived every frame:
+  // the grid keeps working if the viewport resizes mid-game (mobile browser bars).
+  function scrubGeom(){
+    const win=winRect(); const x=win.x+5, y=win.y+5, w=win.w-10, h=win.h-10;
+    return { x, y, w, h, cw:w/scrubCols, ch:h/scrubRows };
+  }
+  function scrubInit(){
+    const win=winRect(); const w=win.w-10, h=win.h-10;
+    const cell=Math.max(18, Math.round(Math.min(w,h)/12));
+    scrubCols=Math.max(4,Math.ceil(w/cell)); scrubRows=Math.max(4,Math.ceil(h/cell));
+    scrubGrid=[]; scrubTotal=0;
+    for(let i=0;i<scrubCols*scrubRows;i++){
+      const v=0.6+Math.random()*0.4; scrubTotal+=v;
+      scrubGrid.push({ v, ox:(Math.random()-0.5)*0.55, oy:(Math.random()-0.5)*0.55,
+        rad:0.44+Math.random()*0.3, hue:92+Math.random()*56 });
+    }
+    scrubFrames=SCRUB_SECONDS*60; scrubProgress=0; scrubActive=true;
+    scrubDragging=false; scrubPrev=null; scrubSparks=[]; scrubHudT=0;
+  }
+  function scrubBrushR(g){ return Math.max(30, Math.min(g.cw,g.ch)*1.2); }
+  function scrubEraseAt(px,py,strength){
+    if(!scrubGrid) return 0;
+    const g=scrubGeom(), R=scrubBrushR(g);
+    const c0=Math.max(0,Math.floor((px-R-g.x)/g.cw)), c1=Math.min(scrubCols-1,Math.floor((px+R-g.x)/g.cw));
+    const r0=Math.max(0,Math.floor((py-R-g.y)/g.ch)), r1=Math.min(scrubRows-1,Math.floor((py+R-g.y)/g.ch));
+    let removed=0;
+    for(let r=r0;r<=r1;r++) for(let c=c0;c<=c1;c++){
+      const cell=scrubGrid[r*scrubCols+c]; if(!cell||cell.v<=0) continue;
+      const cx=g.x+(c+0.5)*g.cw, cy=g.y+(r+0.5)*g.ch;
+      const d=Math.hypot(px-cx,py-cy); if(d>R) continue;
+      const before=cell.v; cell.v=Math.max(0, cell.v-(1-d/R)*strength); removed+=before-cell.v;
+    }
+    return removed;
+  }
+  function scrubComputeProgress(){
+    if(!scrubGrid||scrubTotal<=0){ scrubProgress=0; return; }
+    let sum=0; for(const c of scrubGrid) sum+=c.v;
+    scrubProgress=Math.max(0,Math.min(1,1-sum/scrubTotal));
+  }
+  function scrubPointer(e){
+    const rect=cv.getBoundingClientRect(); const px=e.clientX-rect.left, py=e.clientY-rect.top;
+    let removed=0;
+    if(scrubPrev){
+      const g=scrubGeom(), dx=px-scrubPrev.x, dy=py-scrubPrev.y, dist=Math.hypot(dx,dy);
+      const steps=Math.min(16,Math.max(1,Math.round(dist/(Math.min(g.cw,g.ch)*0.5))));
+      for(let i=1;i<=steps;i++) removed+=scrubEraseAt(scrubPrev.x+dx*i/steps, scrubPrev.y+dy*i/steps, 0.85);
+    } else removed=scrubEraseAt(px,py,0.85);
+    scrubPrev={x:px,y:py};
+    if(removed>0.05){
+      if(scrubSparks.length<70) for(let i=0;i<2;i++) scrubSparks.push({ x:px+(Math.random()-0.5)*34, y:py+(Math.random()-0.5)*34, r:1.5+Math.random()*3, vy:0.5+Math.random()*0.9, life:1, ph:Math.random()*10 });
+      if(t-scrubSfxT>7){ scrubSfxT=t; tone(240+scrubProgress*380+Math.random()*90,.06,'triangle',.035); vibrate(6); }
+    }
+    scrubComputeProgress(); updateScrubHud();
+    if(scrubProgress>=0.995) scrubFinish();
+  }
+  function updateScrubHud(){
+    const sec=Math.max(0,Math.ceil(scrubFrames/60));
+    const tEl=document.getElementById('scrub-time'); tEl.textContent=sec; tEl.classList.toggle('warn',sec<=5);
+    const pct=Math.round(scrubProgress*100);
+    document.getElementById('scrub-fill').style.width=pct+'%';
+    document.getElementById('scrub-pct').textContent=pct;
+  }
+  function openScrub(){
+    const j=caringJelly(); if(!j) return;
+    ensureAudio(); prevState='care'; state='scrub';
+    hideAllScreens(); topbar.classList.add('hidden');
+    document.getElementById('scrub-play').classList.remove('hidden');
+    document.getElementById('scrub-done').classList.add('hidden');
+    scrubEl.classList.remove('hidden');
+    scrubInit(); updateScrubHud();
+  }
+  function scrubFinish(){
+    if(!scrubActive) return;
+    scrubActive=false; scrubDragging=false; scrubPrev=null;
+    const rate=Math.max(0,Math.min(1,scrubProgress)), pct=Math.round(rate*100), perfect=rate>=0.995;
+    const cleanGain=Math.round(rate*100), moodGain=Math.round(rate*8), expGain=Math.round(5+rate*20);
+    let pearlGain=Math.round(rate*8); if(perfect) pearlGain+=4;
+    const j=caringJelly(); let up=0;
+    if(j){ j.clean=clampStat(j.clean+cleanGain); j.mood=clampStat(j.mood+moodGain); up=addExp(j,expGain); }
+    if(pearlGain>0) addPearls(pearlGain,true);
+    const lines=['✨ きれい +'+cleanGain];
+    if(moodGain>0) lines.push('😊 きげん +'+moodGain);
+    lines.push('🫧 真珠 +'+pearlGain);
+    lines.push('⭐ けいけんち +'+expGain+(up>0?'（レベルアップ！）':''));
+    document.getElementById('scrub-score').textContent=pct;
+    document.getElementById('scrub-reward').innerHTML=lines.join('<br>')+(perfect?'<br><span style="color:var(--glow-cyan)">✨ ピカピカ パーフェクト！ ✨</span>':'');
+    document.getElementById('scrub-play').classList.add('hidden');
+    document.getElementById('scrub-done').classList.remove('hidden');
+    sfx.win(); vibrate(30); refreshHome();
+  }
+  function scrubBack(){ scrubEl.classList.add('hidden'); if(caringId) openCare(caringId); else showHome(); }
+  function stepScrub(){
+    stepAquarium();
+    if(scrubActive){
+      scrubFrames--;
+      if(++scrubHudT%6===0) updateScrubHud();
+      if(scrubFrames<=0){ updateScrubHud(); scrubFinish(); }
+    }
+    for(const s of scrubSparks){ s.y-=s.vy; s.x+=Math.sin((t+s.ph)*0.1)*0.4; s.life-=0.022; }
+    if(scrubSparks.length) scrubSparks=scrubSparks.filter(s=>s.life>0);
+  }
+  function drawScrub(){
+    drawAquarium();
+    if(!scrubGrid) return;
+    const g=scrubGeom(), R=g, cs=Math.min(g.cw,g.ch);
+    ctx.save(); roundRectPath(ctx,R.x,R.y,R.w,R.h,27); ctx.clip();
+    ctx.fillStyle='rgba(26,56,38,'+(0.22*(1-scrubProgress)).toFixed(3)+')'; ctx.fillRect(R.x,R.y,R.w,R.h);
+    for(let r=0;r<scrubRows;r++) for(let c=0;c<scrubCols;c++){
+      const cell=scrubGrid[r*scrubCols+c]; if(cell.v<=0.02) continue;
+      const rad=cell.rad*cs;
+      const cx=R.x+(c+0.5)*g.cw+cell.ox*g.cw, cy=R.y+(r+0.5)*g.ch+cell.oy*g.ch;
+      ctx.globalAlpha=Math.min(0.82,cell.v*0.8);
+      ctx.fillStyle='hsl('+cell.hue.toFixed(0)+',44%,'+(26+cell.v*12).toFixed(0)+'%)';
+      ctx.beginPath(); ctx.arc(cx,cy,rad*(0.55+cell.v*0.55),0,Math.PI*2); ctx.fill();
+      if(cell.v>0.55){ ctx.globalAlpha=0.2; ctx.fillStyle='hsl('+(cell.hue+20).toFixed(0)+',58%,52%)'; ctx.beginPath(); ctx.arc(cx-rad*0.26,cy-rad*0.24,rad*0.32,0,Math.PI*2); ctx.fill(); }
+    }
+    ctx.globalAlpha=1;
+    for(const s of scrubSparks){ ctx.globalAlpha=Math.max(0,s.life)*0.8; ctx.fillStyle='rgba(238,255,255,0.95)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
+    // glass sheen
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=0.05; ctx.fillStyle='#cfefff';
+    ctx.beginPath(); ctx.moveTo(R.x,R.y+R.h*0.42); ctx.lineTo(R.x+R.w*0.5,R.y); ctx.lineTo(R.x+R.w*0.72,R.y); ctx.lineTo(R.x,R.y+R.h*0.74); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.restore();
+    // brush ring
+    if(scrubActive&&scrubDragging&&scrubPrev){
+      ctx.save(); ctx.strokeStyle='rgba(235,255,255,0.85)'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(scrubPrev.x,scrubPrev.y,scrubBrushR(g),0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=0.25; ctx.fillStyle='rgba(200,245,255,0.9)'; ctx.fill(); ctx.restore();
+    }
+  }
+
+  // ===================== ミニゲーム②：ふかうみつり（1日1回） =====================
+  const FISH_CATCH=[
+    { tier:'perfect', icon:'💎', name:'しんじゅの原石', label:'パーフェクト！', color:'#ffd98a', pearls:70, food:6, exp:30 },
+    { tier:'great',   icon:'🦑', name:'ひかりイカ',     label:'大あたり！',     color:'#5ce8d5', pearls:36, food:4, exp:18 },
+    { tier:'good',    icon:'🐟', name:'ふかうみザカナ', label:'あたり',         color:'#8fe4f5', pearls:16, food:2, exp:10 },
+    { tier:'miss',    icon:'🥫', name:'あきカン',       label:'ざんねん…',      color:'#8fb3cc', pearls:4,  food:1, exp:4  }
+  ];
+  let fishData=getJSON('kurage-fish',{date:''});
+  function saveFishData(){ store.set('kurage-fish', JSON.stringify(fishData)); }
+  function fishAvailable(){ return !fishData || fishData.date!==todayKey(); }
+  let fishPhase='ready', fishPos=0, fishVel=0.014, fishResult=null, fishAnim=0;
+
+  function openFishing(){
+    if(!fishAvailable()){ showToast('きょうの つりは おわり。また明日ね'); return; }
+    ensureAudio(); prevState='aquarium'; state='fishing';
+    hideAllScreens(); topbar.classList.add('hidden');
+    fishPhase='ready'; fishPos=0; fishVel=0.013+Math.random()*0.004; fishResult=null; fishAnim=0;
+    document.getElementById('fish-play').classList.remove('hidden');
+    document.getElementById('fish-done').classList.add('hidden');
+    fishEl.classList.remove('hidden');
+  }
+  function fishStop(){
+    if(fishPhase!=='ready') return;
+    const d=Math.abs(fishPos-0.5)*2;
+    const idx = d<=0.07 ? 0 : d<=0.25 ? 1 : d<=0.72 ? 2 : 3;
+    fishResult=FISH_CATCH[idx]; fishPhase='reel'; fishAnim=0;
+    fishData={ date:todayKey() }; saveFishData();
+    if(idx===0){ sfx.win(); vibrate([20,40,20]); }
+    else if(idx===3){ tone(300,.26,'sine',.09,170); }
+    else { sfx.coin(); vibrate(20); }
+  }
+  function fishShowResult(){
+    fishPhase='result';
+    const r=fishResult; let bonus='';
+    addPearls(r.pearls,true); food+=r.food; saveFood();
+    const j=activeJelly(); let up=0; if(j) up=addExp(j,r.exp);
+    if(r.tier==='perfect'){
+      const locked=SKINS.filter(s=>!unlocked.includes(s.id));
+      if(locked.length){
+        const s=locked[Math.floor(Math.random()*locked.length)];
+        unlocked.push(s.id); store.set('kurage-skins',JSON.stringify(unlocked));
+        bonus='<br><span style="color:var(--jelly-pink)">🪼 ずかんに「'+s.name+'」が追加！</span>';
+      } else { addPearls(40,true); bonus='<br><span style="color:var(--score-gold)">🫧 コンプリートボーナス +40</span>'; }
+    }
+    document.getElementById('fish-icon').textContent=r.icon;
+    document.getElementById('fish-name').textContent=r.name;
+    const tl=document.getElementById('fish-tier'); tl.textContent=r.label; tl.style.color=r.color;
+    document.getElementById('fish-reward').innerHTML='🫧 真珠 +'+r.pearls+'　🍤 エサ +'+r.food+'<br>⭐ '+(j?j.name:'クラゲ')+' に けいけんち +'+r.exp+(up>0?'（レベルアップ！）':'')+bonus;
+    document.getElementById('fish-play').classList.add('hidden');
+    document.getElementById('fish-done').classList.remove('hidden');
+    sfx.win(); refreshHome();
+  }
+  function fishBack(){ fishEl.classList.add('hidden'); showHome(); }
+  function stepFishing(){
+    t+=1;
+    for(const b of bubbles){ b.y-=b.s; b.x+=Math.sin(t*0.01+b.drift)*0.3; if(b.y<-10){ b.y=H+10; b.x=Math.random()*W; } }
+    if(fishPhase==='ready'){
+      fishPos+=fishVel;
+      if(fishPos>1){ fishPos=1; fishVel=-fishVel; }
+      if(fishPos<0){ fishPos=0; fishVel=-fishVel; }
+    } else if(fishPhase==='reel'){ fishAnim++; if(fishAnim>46) fishShowResult(); }
+  }
+  function drawFishGauge(){
+    const gw=Math.min(W*0.82,420), gx=(W-gw)/2, gy=H*0.62, gh=30, cx=gx+gw/2;
+    ctx.save();
+    roundRectPath(ctx,gx,gy,gw,gh,15); ctx.fillStyle='rgba(6,20,34,0.86)'; ctx.fill();
+    ctx.save(); roundRectPath(ctx,gx+2,gy+2,gw-4,gh-4,13); ctx.clip();
+    const band=(d,col)=>{ ctx.fillStyle=col; ctx.fillRect(cx-gw*d/2, gy+2, gw*d, gh-4); };
+    band(0.72,'rgba(92,232,213,0.16)');
+    band(0.25,'rgba(92,232,213,0.40)');
+    band(0.07,'rgba(255,217,138,0.85)');
+    ctx.restore();
+    ctx.strokeStyle='rgba(190,215,235,0.4)'; ctx.lineWidth=2; roundRectPath(ctx,gx,gy,gw,gh,15); ctx.stroke();
+    const nx=gx+gw*fishPos;
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const gl=ctx.createRadialGradient(nx,gy+gh/2,1,nx,gy+gh/2,34); gl.addColorStop(0,'rgba(255,255,255,0.55)'); gl.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(nx,gy+gh/2,34,0,Math.PI*2); ctx.fill(); ctx.restore();
+    ctx.fillStyle='#ffffff'; roundRectPath(ctx,nx-2.5,gy-7,5,gh+14,2.5); ctx.fill();
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='700 15px "Hiragino Maru Gothic ProN", sans-serif'; ctx.fillStyle='rgba(234,246,255,0.9)';
+    ctx.fillText('タップで とめる！', cx, gy-26);
+    ctx.restore();
+  }
+  function drawFishing(){
+    const gt=gameDef();
+    const grad=ctx.createLinearGradient(0,0,0,H); grad.addColorStop(0,gt.top); grad.addColorStop(1,'#03080f');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    drawGodRays(gt.ray,0.05,0,H*0.92);
+    ctx.save(); for(const b of bubbles){ ctx.globalAlpha=0.2; ctx.strokeStyle='rgba('+gt.mote+',0.5)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); } ctx.restore();
+    drawKelp(W*0.07,H*1.0,H*0.2,gt.plant,0); drawKelp(W*0.94,H*1.0,H*0.16,gt.plant,2.2);
+
+    const hookX=W*0.5+Math.sin(t*0.02)*10, hookY=H*0.3+Math.sin(t*0.04)*8;
+    ctx.save();
+    ctx.strokeStyle='rgba(220,240,255,0.45)'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(W*0.5,-10); ctx.quadraticCurveTo(hookX,hookY*0.55,hookX,hookY); ctx.stroke();
+    ctx.strokeStyle='rgba(220,240,255,0.8)'; ctx.lineWidth=2.4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(hookX,hookY+9,7,Math.PI*0.05,Math.PI*0.95); ctx.stroke();
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const lg=ctx.createRadialGradient(hookX,hookY,1,hookX,hookY,32); lg.addColorStop(0,'rgba(255,230,150,'+(0.4+0.2*Math.sin(t*0.12))+')'); lg.addColorStop(1,'rgba(255,230,150,0)');
+    ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(hookX,hookY,32,0,Math.PI*2); ctx.fill(); ctx.restore();
+    ctx.restore();
+
+    const aj=activeJelly();
+    if(aj){ ctx.save(); ctx.translate(hookX-62, hookY+10+Math.sin(t*0.05)*5); const s=1.2*stageScaleOf(aj); ctx.scale(s,s); ctx.rotate(Math.sin(t*0.03)*0.1); drawJellyPreview(ctx, skinById(aj.skinId), aj.acc); ctx.restore(); }
+
+    if(fishPhase==='ready') drawFishGauge();
+    else if(fishResult){
+      const p=fishPhase==='reel' ? Math.min(1,fishAnim/46) : 1;
+      const ease=1-Math.pow(1-p,3);
+      const ey=lerp(H*0.95, hookY+26, ease), wob=Math.sin(t*0.35)*(1-p)*12;
+      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g2=ctx.createRadialGradient(hookX+wob,ey,2,hookX+wob,ey,54); g2.addColorStop(0,'rgba(255,255,255,'+(0.16+0.24*ease)+')'); g2.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(hookX+wob,ey,54,0,Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.font=Math.round(36+20*ease)+'px sans-serif'; ctx.fillText(fishResult.icon, hookX+wob, ey);
+      ctx.restore();
+    }
+  }
 
   function openSelect(){ if(!jellies||jellies.length<=1){ playWith(activeJelly()); return; } prevState='aquarium'; state='select'; hideAllScreens(); topbar.classList.add('hidden'); selEl.classList.remove('hidden'); renderSelect(); selEl.scrollTop=0; }
   function renderSelect(){
@@ -1628,7 +1957,7 @@
     showToast(item.name+' を手に入れた！'); refreshHome(); renderExchange();
   }
 
-  function hideAllScreens(){ screenTitle.classList.add('hidden'); screenOver.classList.add('hidden'); shopEl.classList.add('hidden'); upgEl.classList.add('hidden'); misEl.classList.add('hidden'); dataEl.classList.add('hidden'); aquaEl.classList.add('hidden'); careEl.classList.add('hidden'); hatchEl.classList.add('hidden'); selEl.classList.add('hidden'); openingEl.classList.add('hidden'); exEl.classList.add('hidden'); document.getElementById('ex-preview').classList.add('hidden'); exPrevOpen=false; document.getElementById('rename-modal').classList.add('hidden'); }
+  function hideAllScreens(){ screenTitle.classList.add('hidden'); screenOver.classList.add('hidden'); shopEl.classList.add('hidden'); upgEl.classList.add('hidden'); misEl.classList.add('hidden'); dataEl.classList.add('hidden'); aquaEl.classList.add('hidden'); careEl.classList.add('hidden'); hatchEl.classList.add('hidden'); selEl.classList.add('hidden'); openingEl.classList.add('hidden'); exEl.classList.add('hidden'); scrubEl.classList.add('hidden'); fishEl.classList.add('hidden'); document.getElementById('ex-preview').classList.add('hidden'); exPrevOpen=false; document.getElementById('rename-modal').classList.add('hidden'); }
   function openPanel(which){
     prevState=(state==='over')?'over':'aquarium'; state=which; ensureAudio();
     hideAllScreens(); topbar.classList.add('hidden');
@@ -1664,6 +1993,11 @@
   // home aquarium nav
   document.getElementById('home-play').addEventListener('click',openSelect);
   document.getElementById('home-hatch').addEventListener('click',openHatch);
+  document.getElementById('home-fish').addEventListener('click',openFishing);
+  document.getElementById('scrub-quit').addEventListener('click',(e)=>{ e.stopPropagation(); scrubFinish(); });
+  document.getElementById('scrub-back').addEventListener('click',(e)=>{ e.stopPropagation(); scrubBack(); });
+  document.getElementById('fish-quit').addEventListener('click',(e)=>{ e.stopPropagation(); fishBack(); });
+  document.getElementById('fish-back').addEventListener('click',(e)=>{ e.stopPropagation(); fishBack(); });
   document.getElementById('home-shop').addEventListener('click',()=>openPanel('shop'));
   document.getElementById('home-upg').addEventListener('click',()=>openPanel('upgrades'));
   document.getElementById('home-mis').addEventListener('click',()=>openPanel('missions'));
@@ -1713,7 +2047,7 @@
   });
 
   const muteBtn=document.getElementById('mute-btn');
-  function applyMute(){ muteBtn.textContent=muted?'🔇':'🔊'; store.set('kurage-muted',muted?'1':'0'); if(muted){ stopBGM(); stopHealing(); } else if(state==='play') startBGM(); else if(AQUA_STATES[state]||state==='opening') startHealing(); }
+  function applyMute(){ muteBtn.textContent=muted?'🔇':'🔊'; store.set('kurage-muted',muted?'1':'0'); if(muted){ stopBGM(); stopHealing(); } else if(state==='play') startBGM(); else if(AQUA_STATES[state]||state==='opening'||state==='scrub'||state==='fishing') startHealing(); }
   muteBtn.addEventListener('click',(e)=>{ e.stopPropagation(); muted=!muted; applyMute(); });
   muteBtn.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); muted=!muted; applyMute(); } });
   applyMute();
@@ -1726,7 +2060,9 @@
   refreshTitle();
 
   function step(){
-    if(AQUA_STATES[state]) stepAquarium();
+    if(state==='scrub') stepScrub();
+    else if(state==='fishing') stepFishing();
+    else if(AQUA_STATES[state]) stepAquarium();
     else if(state==='title'){
       t+=1; updateTitleJelly();
       for(const b of bubbles){ b.y-=b.s; if(b.y<-10){ b.y=H+10; b.x=Math.random()*W; } }
@@ -1737,14 +2073,16 @@
     acc+=Math.min(now-last,100); last=now; let n=0;
     while(acc>=STEP_MS&&n<4){ step(); acc-=STEP_MS; n++; }
     if(acc>=STEP_MS) acc=0;
-    if(AQUA_STATES[state]) drawAquarium();
+    if(state==='scrub') drawScrub();
+    else if(state==='fishing') drawFishing();
+    else if(AQUA_STATES[state]) drawAquarium();
     else draw();
     drawPowerHud();
     if(exPrevOpen) drawExPreview();
     requestAnimationFrame(loop);
   }
 
-  window.__kurageStep=(k)=>{ for(let i=0;i<k;i++) step(); if(AQUA_STATES[state]) drawAquarium(); else draw(); };
+  window.__kurageStep=(k)=>{ for(let i=0;i<k;i++) step(); if(state==='scrub') drawScrub(); else if(state==='fishing') drawFishing(); else if(AQUA_STATES[state]) drawAquarium(); else draw(); };
   window.__kurageDebug=()=>({ state, score, pearls, food, runPearls, runBosses, combo, bossActive, boss: boss?{x:boss.x,y:boss.y,timer:boss.timer,fleeing:boss.fleeing,tier:boss.tier}:null,
     revivesLeft, jellyPearlBonus, jellyY:jelly.y, jellyX:jelly.x, vy:jelly.vy, power:{...power},
     activeId, jellies:(jellies||[]).map(j=>({id:j.id,name:j.name,skin:j.skinId,exp:j.exp,lv:levelOf(j),stage:stageIndex(j),hunger:j.hunger,mood:j.mood,clean:j.clean})),
@@ -1756,6 +2094,12 @@
   window.__kurageAddFood=(n)=>{ food+=n; saveFood(); refreshHome(); };
   window.__kurageAddExp=(n)=>{ const j=activeJelly(); if(j){ addExp(j,n); } };
   window.__kurageHome=()=>showHome();
+  window.__kurageMini=()=>({ state, scrub:{ active:scrubActive, progress:Math.round(scrubProgress*100), sec:Math.ceil(scrubFrames/60), cells:scrubGrid?scrubGrid.length:0 },
+    fish:{ phase:fishPhase, pos:+fishPos.toFixed(3), available:fishAvailable(), result:fishResult?fishResult.tier:null } });
+  window.__kurageScrubOpen=(id)=>{ caringId=id||activeId; openScrub(); };
+  window.__kurageScrubWipe=(k)=>{ if(!scrubGrid) return; const n=Math.floor(scrubGrid.length*(k==null?1:k)); for(let i=0;i<n;i++) scrubGrid[i].v=0; scrubComputeProgress(); updateScrubHud(); };
+  window.__kurageFishReset=()=>{ fishData={date:''}; saveFishData(); refreshHome(); };
+  window.__kurageFishStopAt=(p)=>{ fishPos=p; fishStop(); };
   window.__kuragePlay=()=>playWith(activeJelly());
   window.__kurageSetScore=(s)=>{ score=s; nextBossScore=Math.ceil((s+1)/25)*25; scoreHud.textContent=s; };
   window.__kurageShield=(f)=>{ power.shield=f; };
