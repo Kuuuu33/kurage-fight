@@ -21,6 +21,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#061627">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="icon" href="icons/icon-512.png" sizes="512x512">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="description" content="深海をただようクラゲの育成＆アクションゲーム「くらげファイト」。">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -198,7 +202,23 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  @media (prefers-reduced-motion: reduce) { .tap-hint { animation: none; } }
+  /* ---- ホーム画面に追加のおすすめ ---- */
+  #a2hs {
+    position: fixed; left: 50%; transform: translateX(-50%) translateY(140%);
+    bottom: calc(14px + env(safe-area-inset-bottom)); width: min(92%, 430px);
+    background: var(--panel); border: 1.5px solid var(--panel-line); border-radius: 16px;
+    padding: 15px 16px 13px; z-index: 60; opacity: 0;
+    transition: opacity .35s ease, transform .35s ease;
+    box-shadow: 0 14px 44px rgba(0,0,0,.55);
+  }
+  #a2hs.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #a2hs .t { font-size: 14px; font-weight: 800; color: var(--glow-cyan); margin-bottom: 7px; }
+  #a2hs .d { font-size: 13px; line-height: 1.75; color: #eaf6ff; text-align: left; }
+  #a2hs .r { display: flex; gap: 8px; margin-top: 13px; }
+  #a2hs .r .btn { flex: 1; margin: 0; }
+  .a2hs-how { font-size: 12.5px; line-height: 1.8; color: #eaf6ff; text-align: left; }
+
+  @media (prefers-reduced-motion: reduce) { .tap-hint { animation: none; } #a2hs { transition: none; } }
 
   /* ---- Home aquarium ---- */
   .home { justify-content: space-between; padding-top: calc(20px + env(safe-area-inset-top)); padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
@@ -518,6 +538,10 @@
       <textarea class="code" id="import-code" placeholder="ここにコードを貼り付け"></textarea>
       <button class="btn" id="restore-code">このコードで復元する</button>
     </div>
+    <div class="data-box" id="a2hs-box" style="display:none">
+      <div class="lbl">📱 ホーム画面に追加する</div>
+      <div class="a2hs-how" id="a2hs-how2"></div>
+    </div>
     <div class="btn-row"><button class="btn primary shop-back">もどる</button></div>
   </div>
 
@@ -531,6 +555,15 @@
   </div>
 
   <div id="toast"></div>
+
+  <div id="a2hs" role="dialog" aria-live="polite" style="display:none">
+    <div class="t">🫧 ホーム画面に追加しておくと安心です</div>
+    <div class="d" id="a2hs-how"></div>
+    <div class="r">
+      <button class="btn small" id="a2hs-later">あとで</button>
+      <button class="btn primary small" id="a2hs-ok">わかった</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -563,7 +596,7 @@
   const fishEl = document.getElementById('fishing');
   const toastEl = document.getElementById('toast');
 
-  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish'];
+  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish','kurage-a2hs'];
   // Durable storage: localStorage (primary) + IndexedDB (backup mirror).
   // Ask the browser to keep our data across restarts / not auto-evict it.
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
@@ -2112,6 +2145,77 @@
   hideAllScreens(); topbar.classList.add('hidden');
   state='opening'; openingEl.classList.remove('hidden');
   loop(performance.now());
+})();
+</script>
+
+<script>
+/* ホーム画面への追加のおすすめ。
+   ゲーム本体には触らず、画面の切り替わりを外から見て動きます。
+   iOS Safari は「7日間そのサイトを開かないと保存データを消す」ことがありますが、
+   ホーム画面から起動している場合は対象外になります。つまりセーブを守る手段です。 */
+(function () {
+  var ls = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  var ua = navigator.userAgent;
+  var isAndroid = /Android/.test(ua);
+  // iPadOS は UA に iPad と出ないので、Mac 判定＋タッチ有無で見分ける。
+  // ただし Android より先に判定すると誤爆するので、必ず Android を除外してから。
+  var isIOS = !isAndroid && (/iPad|iPhone|iPod/.test(ua) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  var standalone = window.navigator.standalone === true ||
+                   window.matchMedia('(display-mode: standalone)').matches ||
+                   window.matchMedia('(display-mode: fullscreen)').matches;
+
+  var HOW_IOS = '画面下の <b>共有ボタン</b>（□に↑）をおして、<b>「ホーム画面に追加」</b>をえらんでね。'
+              + 'アプリのように全画面で開けて、<b>セーブデータも消えにくくなります</b>。';
+  var HOW_ANDROID = 'ブラウザのメニュー（⋮）から <b>「ホーム画面に追加」</b>または<b>「アプリをインストール」</b>をえらんでね。'
+                  + 'アプリのように全画面で開けます。';
+  var HOW_DONE = 'もう追加ずみです。このまま遊んでね。';
+
+  var how = standalone ? HOW_DONE : (isIOS ? HOW_IOS : (isAndroid ? HOW_ANDROID : ''));
+
+  // データ画面の常設案内（スマホのときだけ出す。いつでも見返せる場所）
+  var box = document.getElementById('a2hs-box');
+  var how2 = document.getElementById('a2hs-how2');
+  if (box && how2 && how) { how2.innerHTML = how; box.style.display = ''; }
+
+  // ここから下は「1回だけ出すおすすめ」。追加ずみ・PCでは出しません。
+  if (standalone || !(isIOS || isAndroid)) return;
+  if (ls.get('kurage-a2hs')) return;
+
+  var el = document.getElementById('a2hs');
+  var howEl = document.getElementById('a2hs-how');
+  var over = document.getElementById('screen-over');
+  if (!el || !howEl || !over) return;
+  howEl.innerHTML = how;
+
+  function close(remember) {
+    el.classList.remove('show');
+    setTimeout(function () { el.style.display = 'none'; }, 400);
+    if (remember) ls.set('kurage-a2hs', '1');
+  }
+  document.getElementById('a2hs-ok').addEventListener('click', function () { close(true); });
+  document.getElementById('a2hs-later').addEventListener('click', function () { close(true); });
+
+  var shown = false;
+  function maybeShow() {
+    if (shown) return;
+    // 失うものができた人にだけ声をかける（初回プレイ直後には出さない）
+    var best = parseInt(ls.get('kurage-best') || '0', 10) || 0;
+    var pearls = parseInt(ls.get('kurage-pearls') || '0', 10) || 0;
+    if (best < 5 && pearls < 10) return;
+    shown = true;
+    el.style.display = '';
+    setTimeout(function () { el.classList.add('show'); }, 900);
+  }
+
+  // ゲームオーバー画面が出たタイミングを、クラス変化から検知する
+  new MutationObserver(function () {
+    if (!over.classList.contains('hidden')) maybeShow();
+  }).observe(over, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 </body>

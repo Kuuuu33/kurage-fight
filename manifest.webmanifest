@@ -1,0 +1,17 @@
+{
+  "name": "くらげファイト 〜深海をただよう〜",
+  "short_name": "くらげファイト",
+  "description": "タップでふわっと浮かび、サンゴをよけて真珠を集める育成＆アクション。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#061627",
+  "theme_color": "#061627",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
