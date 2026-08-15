@@ -100,6 +100,20 @@
   #stage-intro .bs { font-size: 12.5px; font-weight: 700; color: var(--text-dim); }
   @media (prefers-reduced-motion: reduce) { #stage-intro { transition: none; } }
 
+  /* ---- ログインボーナス ---- */
+  #login-modal { pointer-events: auto; background: rgba(4,10,20,.8); backdrop-filter: blur(3px); z-index: 62; }
+  .lb-days { display: flex; gap: 5px; }
+  .lb-day { width: 30px; padding: 5px 0 4px; border-radius: 9px; text-align: center; font-size: 10px; font-weight: 800;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: var(--text-dim); }
+  .lb-day .d { font-size: 9px; opacity: .8; }
+  .lb-day.done { background: rgba(92,232,213,.14); border-color: rgba(92,232,213,.4); color: var(--glow-cyan); }
+  .lb-day.now { background: linear-gradient(135deg,#ffd166,#ff9e6b); border-color: transparent; color: #3a2200; box-shadow: 0 0 14px rgba(255,209,102,.5); }
+
+  /* ---- ウィークリー ---- */
+  .weekly-card { border-color: rgba(201,168,245,.45); }
+  .weekly-card .head { color: #c9a8f5; }
+  .weekly-card .pbar > i { background: linear-gradient(90deg,#c9a8f5,#ffd166); }
+
   /* ---- 個体の特性 ---- */
   .trait-card { background: var(--panel); border: 1.5px solid var(--panel-line); border-radius: 14px; padding: 10px 13px; width: min(92%,360px); display: flex; flex-direction: column; gap: 7px; }
   .trait-card .tr-head { display: flex; align-items: center; gap: 8px; }
@@ -284,7 +298,7 @@
   }
   .daily-card .head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: var(--score-gold); letter-spacing: .05em; }
   .daily-card .head > span:first-child { white-space: nowrap; }
-  .daily-card .head .hd-r { margin-left: auto; white-space: nowrap; }
+  .daily-card .head .hd-r { margin-left: auto; white-space: nowrap; padding-left: 8px; }
   .daily-x {
     font-family: inherit; cursor: pointer; flex: none; margin: -4px -6px -4px 2px;
     width: 28px; height: 28px; line-height: 1; border-radius: 50%;
@@ -529,6 +543,7 @@
       <div class="home-stats">
         <div class="hud-pill" aria-label="真珠">🫧 <span id="home-pearls">0</span></div>
         <div class="hud-pill" aria-label="エサ">🍤 <span id="home-food">0</span></div>
+        <div class="hud-pill" id="home-login" aria-label="ログイン継続">🗓️ 0</div>
       </div>
     </div>
     <div class="home-mid"><div class="home-hint">🪼 <span id="home-count">0</span>ひき ・ クラゲをタップでおせわ</div></div>
@@ -705,6 +720,7 @@
   <div id="missions" class="overlay panel hidden">
     <h2>ミッション</h2>
     <div class="bal" id="mis-rank">🪼 見習いクラゲ</div>
+    <div id="mis-weekly"></div>
     <div class="list" id="mis-list"></div>
     <div class="btn-row"><button class="btn primary shop-back">もどる</button></div>
   </div>
@@ -732,6 +748,17 @@
         <button class="btn primary" id="ex-prev-action">こうかんする</button>
         <button class="btn" id="ex-prev-close">とじる</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Login bonus -->
+  <div id="login-modal" class="overlay hidden">
+    <div class="prev-box" style="gap:12px;min-width:min(88%,340px)">
+      <div class="rank-badge" id="lb-streak">🗓️ 1にち れんぞく</div>
+      <div class="prev-name">ログインボーナス</div>
+      <div id="lb-days" class="lb-days"></div>
+      <div class="prev-cost" id="lb-reward"></div>
+      <div class="btn-row"><button class="btn primary" id="lb-ok">うけとる</button></div>
     </div>
   </div>
 
@@ -820,7 +847,7 @@
   const fishEl = document.getElementById('fishing');
   const toastEl = document.getElementById('toast');
 
-  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish','kurage-a2hs','kurage-diff','kurage-stages','kurage-bossdex','kurage-savever','kurage-dailyhide','kurage-gacha'];
+  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish','kurage-a2hs','kurage-diff','kurage-stages','kurage-bossdex','kurage-savever','kurage-dailyhide','kurage-gacha','kurage-weekly','kurage-login'];
   // Durable storage: localStorage (primary) + IndexedDB (backup mirror).
   // Ask the browser to keep our data across restarts / not auto-evict it.
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
@@ -1004,6 +1031,59 @@
     { type:'nodmg',  goal:1,  desc:'ハートを減らさずにクリアする',    reward:90 }
   ];
   function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+  function dayKeyOf(d){ return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+  function yesterdayKey(){ const d=new Date(); d.setDate(d.getDate()-1); return dayKeyOf(d); }
+  // その週の月曜日を週の識別子にする
+  function weekKey(){
+    const d=new Date(); const dow=(d.getDay()+6)%7;   // 月曜=0
+    d.setDate(d.getDate()-dow); return 'w'+dayKeyOf(d);
+  }
+
+  // ---------- ウィークリーミッション ----------
+  // デイリーと違い、1週間ぶんを積み上げていく（1回のプレイで終わらない量）
+  const WEEKLY_POOL = [
+    { type:'clear', goal:5,    desc:'ステージを5回クリアする',      reward:300, food:20 },
+    { type:'boss',  goal:8,    desc:'ボスを8体げきたいする',        reward:320, food:20 },
+    { type:'pearl', goal:1200, desc:'真珠を1200あつめる',           reward:280, food:25 },
+    { type:'coral', goal:200,  desc:'珊瑚を200本くぐる',            reward:300, food:20 },
+    { type:'nodmg', goal:3,    desc:'ノーダメージクリアを3回',      reward:400, food:30 },
+    { type:'gacha', goal:8,    desc:'タマゴガチャを8回ひく',        reward:260, food:20 }
+  ];
+  let weekly = getJSON('kurage-weekly', null);
+  function saveWeekly(){ store.set('kurage-weekly', JSON.stringify(weekly)); }
+  function ensureWeekly(){
+    const wk=weekKey();
+    if(!weekly || weekly.week!==wk || !(weekly.idx>=0) || weekly.idx>=WEEKLY_POOL.length){
+      weekly={ week:wk, idx:hashStr(wk)%WEEKLY_POOL.length, progress:0, claimed:false }; saveWeekly();
+    }
+  }
+  ensureWeekly();
+  function weeklyDef(){ return WEEKLY_POOL[weekly.idx]; }
+  function weeklyClaimable(){ return !weekly.claimed && weekly.progress>=weeklyDef().goal; }
+  function addWeekly(type,n){
+    ensureWeekly();
+    if(weekly.claimed || weeklyDef().type!==type) return;
+    weekly.progress=Math.min(weeklyDef().goal, weekly.progress+(n||1)); saveWeekly();
+  }
+
+  // ---------- ログイン継続 ----------
+  const LOGIN_REWARDS=[30,45,60,80,100,130,200];      // 1日目〜7日目、8日目以降は7日目と同じ
+  let login = getJSON('kurage-login', null);
+  function saveLogin(){ store.set('kurage-login', JSON.stringify(login)); }
+  function ensureLogin(){ if(!login||typeof login!=='object') login={ last:'', streak:0 }; }
+  ensureLogin();
+  function loginReward(streak){ return LOGIN_REWARDS[Math.min(streak,LOGIN_REWARDS.length)-1]; }
+  // 今日はじめて水槽に来たときに1回だけ配る
+  function checkLoginBonus(){
+    ensureLogin();
+    const tk=todayKey();
+    if(login.last===tk) return null;
+    login.streak = (login.last===yesterdayKey()) ? (login.streak||0)+1 : 1;
+    login.last=tk; saveLogin();
+    const pearl=loginReward(login.streak), foodGain=login.streak>=7?10:4;
+    addPearls(pearl,true); food+=foodGain; saveFood();
+    return { streak:login.streak, pearl, food:foodGain };
+  }
   function hashStr(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); }
   let daily = getJSON('kurage-daily', null);
   function ensureDaily(){
@@ -1336,7 +1416,7 @@
     boss.fleeing=true; bossActive=false;
     const reward=10+boss.tier*6;
     addPearls(reward, true);
-    runBosses++; stats.bosses=(stats.bosses||0)+1; saveStats();
+    runBosses++; stats.bosses=(stats.bosses||0)+1; saveStats(); addWeekly('boss',1);
     sfx.win(); vibrate(60);
     floaters.push({ x:W*0.5, y:H*0.4, text:'げきたい！ +'+reward+'🫧', life:1.6, vy:-0.5, size:22, color:'255,217,138' });
     // ボス図鑑に登録
@@ -1439,7 +1519,7 @@
   }
   function addPearls(n, skipBonus){
     if(!skipBonus){ const mult=(1+(UPGRADES.find(u=>u.id==='pearlPlus').vals[upgrades.pearlPlus]||0))*jellyPearlBonus; n=Math.round(n*mult); }
-    runPearls+=n; pearls+=n; stats.lifetimePearls=(stats.lifetimePearls||0)+n; saveStats();
+    runPearls+=n; pearls+=n; stats.lifetimePearls=(stats.lifetimePearls||0)+n; saveStats(); addWeekly('pearl',n);
     store.set('kurage-pearls',String(pearls)); pearlHud.textContent=pearls;
   }
 
@@ -1540,6 +1620,7 @@
     nextBtn.textContent='▶ ステージ '+(st.n+1)+' へ';
 
     shareCleared=true;
+    addWeekly('clear',1); if(noDmg) addWeekly('nodmg',1);
     if(hearts>=maxHearts) stats.perfectClears=(stats.perfectClears||0)+1;
     stats.stagesCleared=clearedCount(); saveStats();
     updateDailyProgress(true); renderDaily(document.getElementById('sc-daily-slot'));
@@ -1617,7 +1698,7 @@
         p.x-=sp;
         if(p.moving) p.gapY=p.baseGapY+Math.sin(t*0.03+p.movePhase)*p.moveAmp;
         if(!p.passed && p.x+34<jelly.x){
-          p.passed=true; score+=1; scoreHud.textContent=score; sfx.pass();
+          p.passed=true; score+=1; scoreHud.textContent=score; sfx.pass(); addWeekly('coral',1);
           stats.coralPassed=(stats.coralPassed||0)+1; saveStats();
           if(p.item&&p.item.kind==='pearl'&&!p.item.taken) combo=0;
           for(let i=0;i<5;i++) particles.push({ x:jelly.x+10, y:jelly.y, vx:-1-Math.random()*2, vy:(Math.random()-0.5)*2, life:1, r:1.5+Math.random()*2, color:'255,217,138' });
@@ -2324,7 +2405,30 @@
     }
   }
 
+  function renderWeekly(slot){
+    ensureWeekly();
+    const def=weeklyDef(), val=Math.min(weekly.progress,def.goal), done=weekly.progress>=def.goal;
+    slot.innerHTML='';
+    const card=document.createElement('div'); card.className='daily-card weekly-card';
+    const head=document.createElement('div'); head.className='head';
+    head.innerHTML='<span>🗓️ 今週のミッション</span><span class="hd-r">🫧'+def.reward+'＋🍤'+def.food+'</span>';
+    card.appendChild(head);
+    const desc=document.createElement('div'); desc.className='desc'; desc.textContent=def.desc; card.appendChild(desc);
+    const pbar=document.createElement('div'); pbar.className='pbar'; const fill=document.createElement('i');
+    fill.style.width=(val/def.goal*100)+'%'; pbar.appendChild(fill); card.appendChild(pbar);
+    const foot=document.createElement('div'); foot.className='foot';
+    const prog=document.createElement('span'); prog.textContent=val+' / '+def.goal; foot.appendChild(prog);
+    const btn=document.createElement('button'); btn.className='claim-btn';
+    if(weekly.claimed){ btn.textContent='うけとり済'; btn.disabled=true; }
+    else if(done){ btn.textContent='うけとる'; btn.addEventListener('click',()=>{
+        weekly.claimed=true; saveWeekly(); addPearls(def.reward,true); food+=def.food; saveFood();
+        sfx.win(); vibrate(30); showToast('今週のミッション達成！ +'+def.reward+' 真珠 ＋エサ'+def.food);
+        renderWeekly(slot); refreshHome(); }); }
+    else { btn.textContent='ちょうせん中'; btn.disabled=true; }
+    foot.appendChild(btn); card.appendChild(foot); slot.appendChild(card);
+  }
   function renderMissions(){
+    renderWeekly(document.getElementById('mis-weekly'));
     const nt=nextTitle();
     document.getElementById('mis-rank').innerHTML='🪼 '+titleFor()+(nt?'<div class="ds" style="text-align:center;margin-top:3px">つぎの称号「'+nt.name+'」：'+nt.need+'</div>':'<div class="ds" style="text-align:center;margin-top:3px">すべての称号をあつめた！</div>');
     const list=document.getElementById('mis-list'); list.innerHTML='';
@@ -2486,6 +2590,7 @@
   }
   // 1回ぶんの抽選を確定させ、クラゲを増やす。かぶりは真珠に還元。
   function resolvePull(minR){
+    addWeekly('gacha',1);
     const sk=rollSkin(minR), rank=rarityOf(sk.id);
     const dup=unlocked.includes(sk.id);
     if(!dup){ unlocked.push(sk.id); store.set('kurage-skins',JSON.stringify(unlocked)); }
@@ -2643,6 +2748,10 @@
     document.getElementById('home-mute').textContent=muted?'🔇':'🔊';
     const fb=document.getElementById('home-fish');
     if(fb){ const av=fishAvailable(); fb.textContent=av?'🎣 つり ✨':'🎣 つり済'; fb.disabled=!av; }
+    const mb=document.getElementById('home-mis');
+    if(mb) mb.textContent='🎯 ミッション'+(weeklyClaimable()?' ✨':'');
+    const lp=document.getElementById('home-login');
+    if(lp) lp.textContent='🗓️ '+(login.streak||0);
     const dslot=document.getElementById('home-daily-slot'), dbtn=document.getElementById('home-daily');
     if(dailyHidden){
       dslot.innerHTML='';
@@ -2652,11 +2761,28 @@
       if(dbtn) dbtn.style.display='none';
     }
   }
+  function showLoginBonus(b){
+    const days=document.getElementById('lb-days'); days.innerHTML='';
+    for(let i=1;i<=LOGIN_REWARDS.length;i++){
+      const cell=document.createElement('div');
+      const cur=Math.min(b.streak,LOGIN_REWARDS.length);
+      cell.className='lb-day'+(i<cur?' done':i===cur?' now':'');
+      cell.innerHTML='<div class="d">'+i+'日</div>🫧'+LOGIN_REWARDS[i-1];
+      days.appendChild(cell);
+    }
+    document.getElementById('lb-streak').textContent='🗓️ '+b.streak+'にち れんぞく'+(b.streak>=7?'！':'');
+    document.getElementById('lb-reward').innerHTML='🫧 真珠 +'+b.pearl+'　🍤 エサ +'+b.food
+      +(b.streak>=7?'<br><span style="color:var(--score-gold)">7日つづいた！ さいこう額だよ</span>':'');
+    document.getElementById('login-modal').classList.remove('hidden');
+    sfx.win(); vibrate([20,30,20]);
+  }
   function showHome(){
     hideAllScreens(); topbar.classList.add('hidden'); stopBGM(); startHealing();
     applyDecay(); initTank();
     state='aquarium'; aquaEl.classList.remove('hidden'); refreshHome();
     if(refundNotice>0){ const n=refundNotice; refundNotice=0; setTimeout(()=>showToast('🫧 背景テーマは ステージごとの見た目に変わりました。真珠 '+n+' を返金したよ'), 600); }
+    const lb=checkLoginBonus();
+    if(lb){ setTimeout(()=>{ showLoginBonus(lb); refreshHome(); }, 420); }
   }
   function enterFromOpening(){ ensureAudio(); startHealing(); showHome(); }
 
@@ -2721,7 +2847,7 @@
     input.value=j.name||''; modal.classList.remove('hidden');
     setTimeout(()=>{ input.focus(); input.select(); }, 30);
   }
-  function closeRename(){ document.getElementById('rename-modal').classList.add('hidden'); }
+  function closeRename(){ document.getElementById('rename-modal').classList.add('hidden'); document.getElementById('login-modal').classList.add('hidden'); }
   function commitRename(){
     const j=caringJelly(); const input=document.getElementById('rename-input');
     const nm=(input.value||'').trim().slice(0,8);
@@ -3434,6 +3560,7 @@
   document.getElementById('care-cleanbtn').addEventListener('click',careClean);
   document.getElementById('care-rename').addEventListener('click',careRename);
   document.getElementById('care-reroll').addEventListener('click',careReroll);
+  document.getElementById('lb-ok').addEventListener('click',()=>{ document.getElementById('login-modal').classList.add('hidden'); sfx.coin(); refreshHome(); });
   document.getElementById('rename-ok').addEventListener('click',commitRename);
   document.getElementById('rename-cancel').addEventListener('click',closeRename);
   document.getElementById('rename-input').addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); commitRename(); } else if(e.key==='Escape'){ e.preventDefault(); closeRename(); } });
@@ -3536,6 +3663,10 @@
   window.__kurageStageReset=()=>{ stageData={unlocked:1,rec:{}}; saveStages(); refreshHome(); };
   window.__kurageDex=()=>({ found:dexCount(), dex:JSON.parse(JSON.stringify(bossDex)) });
   window.__kurageDexReset=()=>{ bossDex={}; saveDex(); };
+  window.__kurageWeekly=()=>({ ...weekly, def:weeklyDef(), claimable:weeklyClaimable(), week:weekKey() });
+  window.__kurageWeeklySet=(idx,prog)=>{ ensureWeekly(); weekly.idx=idx; weekly.progress=prog||0; weekly.claimed=false; saveWeekly(); return weekly; };
+  window.__kurageLogin=()=>({ ...login, today:todayKey(), yesterday:yesterdayKey() });
+  window.__kurageLoginSet=(last,streak)=>{ login={last, streak}; saveLogin(); return login; };
   window.__kurageTraits=()=>({ list:TRAITS.map(t=>t.id),
     jellies:(jellies||[]).map(j=>({name:j.name, skin:j.skinId, trait:j.trait, shiny:!!j.shiny})),
     active:(()=>{ const a=activeJelly(); return a?{name:a.name,trait:a.trait,shiny:!!a.shiny}:null; })(),
