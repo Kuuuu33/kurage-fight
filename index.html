@@ -862,16 +862,17 @@
     { name:'光をあやつる者', need:'ステージ3をクリア' },
     { name:'深淵の番人',     need:'ステージ4をクリア' },
     { name:'深海の主',       need:'ステージ5をクリア' },
-    { name:'伝説のクラゲ',   need:'全5ステージをノーダメージでクリア' }
+    { name:'深淵をのぞく者', need:'ステージ6をクリア' },
+    { name:'伝説のクラゲ',   need:'全6ステージをノーダメージでクリア' }
   ];
   // 旧データ（エンドレス時代のスコア）で得ていた位を下回らせない
-  const LEGACY_S = [0,10,20,35,50,70,100];
+  const LEGACY_S = [0,10,20,35,50,70,85,100];
   function legacyRank(b){ let r=0; for(let i=0;i<LEGACY_S.length;i++) if(b>=LEGACY_S[i]) r=i; return r; }
   function titleRank(){
     let r=0;
     if(typeof stageCleared==='function'){
       for(const s of STAGES) if(stageCleared(s.n)) r=Math.max(r, s.n);   // 1〜5
-      if(r>=STAGE_MAX && STAGES.every(s=>{ const rec=stageRec(s.n); return rec&&rec.noDmg; })) r=6;
+      if(r>=STAGE_MAX && STAGES.every(s=>{ const rec=stageRec(s.n); return rec&&rec.noDmg; })) r=STAGE_MAX+1;
     }
     return Math.max(r, legacyRank(best));
   }
@@ -1005,7 +1006,8 @@
     { id:'m_st1',   desc:'ステージ1をクリアする',   stat:'maxStage',    goal:1,   reward:60 },
     { id:'m_st3',   desc:'ステージ3をクリアする',   stat:'maxStage',    goal:3,   reward:150 },
     { id:'m_st5',   desc:'ステージ5をクリアする',   stat:'maxStage',    goal:5,   reward:300 },
-    { id:'m_dex',   desc:'ボスを5種ずかんに登録',   stat:'dexFound',    goal:5,   reward:250 },
+    { id:'m_dex',   desc:'ボスを6種ずかんに登録',   stat:'dexFound',    goal:6,   reward:250 },
+    { id:'m_st6',   desc:'ステージ6をクリアする',   stat:'maxStage',    goal:6,   reward:500 },
     { id:'m_nodmg', desc:'ノーダメージでクリアする',stat:'perfectClears',goal:1,  reward:200 }
   ];
   function maxStageCleared(){ let m=0; for(const s of STAGES) if(stageCleared(s.n)) m=Math.max(m,s.n); return m; }
@@ -1085,18 +1087,22 @@
     { n:1, name:'浅瀬のサンゴ礁', len:16, speed:1.00, gap:1.00, bossId:'crab',  bossName:'ハサミガニ',   bossSec:20, first:60,  again:20,
       vis:{ top:'#0d5f7a', bot:'#1f96a0', ray:'190,250,255', rayA:0.17, plant:'90,215,185', mote:'205,250,255', moteKind:'bubble',
             obst:'coral', coral:['#e0705f','#ffa98c','#a83f4a'], accent:'255,205,170', floor:'#1f96a0' } },
-    { n:2, name:'海藻の森',       len:20, speed:1.06, gap:0.98, bossId:'moray', bossName:'ヌシウツボ',   bossSec:24, first:90,  again:30,
+    { n:2, name:'海藻の森',       len:20, speed:1.06, gap:0.98, bossId:'moray', bossName:'ヌシウツボ',   bossSec:24, first:90,  again:30, fg:'kelp',
       vis:{ top:'#06331f', bot:'#0f6440', ray:'160,245,195', rayA:0.10, plant:'120,225,150', mote:'180,255,205', moteKind:'debris',
             obst:'kelp',  coral:['#06281a','#0b3b26','#7fdca8'], accent:'130,235,170', floor:'#0f6440' } },
-    { n:3, name:'沈没船',         len:22, speed:1.12, gap:0.96, bossId:'octo',  bossName:'サビダコ',     bossSec:28, first:130, again:40,
+    { n:3, name:'沈没船',         len:22, speed:1.12, gap:0.96, bossId:'octo',  bossName:'サビダコ',     bossSec:28, first:130, again:40, beam:1,
       vis:{ top:'#101f2a', bot:'#24343d', ray:'195,205,215', rayA:0.05, plant:'120,140,150', mote:'215,175,130', moteKind:'rust',
             obst:'wreck', coral:['#3b3229','#5d4c3c','#241d17'], accent:'210,160,110', floor:'#24343d' } },
-    { n:4, name:'熱水噴出孔',     len:24, speed:1.18, gap:0.94, bossId:'ray',   bossName:'マグマエイ',   bossSec:30, first:180, again:55,
+    { n:4, name:'熱水噴出孔',     len:24, speed:1.18, gap:0.94, bossId:'ray',   bossName:'マグマエイ',   bossSec:30, first:180, again:55, updraft:1,
       vis:{ top:'#1a0510', bot:'#40100f', ray:'255,150,95', rayA:0.07, plant:'205,95,60', mote:'255,170,95', moteKind:'ash',
             obst:'vent',  coral:['#3a1a18','#6e2c1d','#210d0c'], accent:'255,140,80', floor:'#40100f' } },
-    { n:5, name:'深海',           len:28, speed:1.24, gap:0.92, bossId:'squid', bossName:'ダイオウイカ', bossSec:34, first:260, again:80,
+    { n:5, name:'発光生物の層',   len:28, speed:1.24, gap:0.92, bossId:'squid', bossName:'ダイオウイカ', bossSec:34, first:260, again:80, dark:0.9,
       vis:{ top:'#02040c', bot:'#0a1030', ray:'130,150,255', rayA:0.03, plant:'85,105,200', mote:'160,190,255', moteKind:'glow',
-            obst:'ice',   coral:['#0e1738','#1d2a5c','#080d24'], accent:'150,175,255', floor:'#0a1030', bio:true } }
+            obst:'ice',   coral:['#0e1738','#1d2a5c','#080d24'], accent:'150,175,255', floor:'#0a1030', bio:true } },
+    { n:6, name:'深淵',           len:32, speed:1.32, gap:0.90, bossId:'angler',bossName:'シンエンアンコウ', bossSec:40, first:400, again:120,
+      dark:0.72, beam:1, updraft:1, fg:'kelp',
+      vis:{ top:'#050208', bot:'#160820', ray:'190,120,255', rayA:0.04, plant:'120,70,180', mote:'210,150,255', moteKind:'glow',
+            obst:'ice',   coral:['#1a0e2e','#2f1a4d','#0d0618'], accent:'200,150,255', floor:'#160820', bio:true } }
   ];
   const STAGE_MAX = STAGES.length;
   function stageByN(n){ return STAGES.find(s=>s.n===n)||STAGES[0]; }
@@ -1104,6 +1110,7 @@
   function hasMine(n){ return n>=3; }
   function hasElectric(n){ return n>=4; }
   function hasFish(n){ return n>=5; }
+  function stageFlag(k){ const st=stageDef(); return st[k]||0; }
 
   let stageData = getJSON('kurage-stages', null);
   function saveStages(){ store.set('kurage-stages', JSON.stringify(stageData)); }
@@ -1125,7 +1132,8 @@
     moray: '海藻の森のぬし。岩あなでじっとしていて、通りかかった影にとびかかる。',
     octo:  '沈没船に住みついたタコ。船の鉄をすって、体がさびた色になったらしい。',
     ray:   '熱水のふきだす谷を泳ぐエイ。体の熱で、まわりの海水がゆらいで見える。',
-    squid: '深海の王。めったに姿を見せず、見た者は光る腕だけを覚えているという。'
+    squid: '深海の王。めったに姿を見せず、見た者は光る腕だけを覚えているという。',
+    angler:'深淵のぬし。ちょうちんの明かりだけが先に見え、気づいたときには目の前にいる。'
   };
   let bossDex = getJSON('kurage-bossdex', {});
   function saveDex(){ store.set('kurage-bossdex', JSON.stringify(bossDex)); }
@@ -1177,7 +1185,8 @@
   function reset(){
     score=0; runPearls=0; runBosses=0; runMaxCombo=0; t=0;
     jelly.x=W*0.28; jelly.y=H*0.45; jelly.vy=0; jelly.tilt=0; jelly.pulse=0;
-    pillars=[]; items=[]; particles=[]; floaters=[]; enemies=[]; shots=[];
+    pillars=[]; items=[]; particles=[]; floaters=[]; enemies=[]; shots=[]; beams=[]; drafts=[];
+    beamTimer=420; draftTimer=300;
     spawnTimer=40; itemCarry=0; enemyTimer=520; fishTimer=760;
     shake=0; slowmo=0; flash=0; combo=0; comboTimer=0;
     maxHearts=diff().hearts; hearts=maxHearts; inv=0; runFrames=0; pendingClear=0; runClearMs=0;
@@ -1212,6 +1221,63 @@
     if(score>=6&&itemCarry%4===0){ const pool=score>=14?['shield','magnet','slow']:['shield','slow']; kind=pool[Math.floor(Math.random()*pool.length)]; }
     const it={ pillar:p, x:p.x, y:gapY+gapH*0.5, kind, taken:false, bob:Math.random()*Math.PI*2, r:kind==='pearl'?9:15 };
     p.item=it; items.push(it); pillars.push(p);
+  }
+  // ---------- 層ごとのギミック ----------
+  // サーチライト（3層・6層）: ゆっくり首をふる光。明るいあいだだけ当たる。
+  // 上昇気流（4層・6層）: 中にいるとぐいぐい押し上げられる。ダメージはない。
+  let beams=[], drafts=[], beamTimer=0, draftTimer=0;
+  function spawnBeam(){
+    const fromTop=Math.random()<0.5;
+    beams.push({ x:W+70, y:fromTop?-8:H+8, fromTop, ang:fromTop?Math.PI/2:-Math.PI/2,
+      swing:0.55+Math.random()*0.25, phase:Math.random()*Math.PI*2, len:H*0.78, half:0.13, cyc:Math.random()*Math.PI*2 });
+  }
+  function spawnDraft(){
+    const w=52+Math.random()*30;
+    drafts.push({ x:W+w, w, power:0.42+Math.random()*0.22, ph:Math.random()*Math.PI*2 });
+  }
+  function beamHot(b){ return 0.5+0.5*Math.sin(t*0.045+b.cyc); }      // 0..1 の明るさ
+  function beamHits(b,px,py){
+    if(beamHot(b)<0.62) return false;                                  // 暗いときは安全
+    const dx=px-b.x, dy=py-b.y, d=Math.hypot(dx,dy);
+    if(d<18 || d>b.len) return false;
+    let da=Math.atan2(dy,dx)-beamAng(b);
+    while(da>Math.PI) da-=Math.PI*2; while(da<-Math.PI) da+=Math.PI*2;
+    return Math.abs(da)<b.half*0.82;                                   // 見た目より少し内側
+  }
+  function beamAng(b){ return b.ang+Math.sin(t*0.012+b.phase)*b.swing; }
+  function drawBeams(){
+    for(const b of beams){
+      const hot=beamHot(b), a=beamAng(b);
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.translate(b.x,b.y); ctx.rotate(a);
+      const g2=ctx.createLinearGradient(0,0,b.len,0);
+      const col=hot>=0.62?'255,190,120':'150,190,220';
+      g2.addColorStop(0,`rgba(${col},${0.30+0.30*hot})`); g2.addColorStop(1,`rgba(${col},0)`);
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(b.half)*b.len, Math.sin(b.half)*b.len);
+      ctx.lineTo(Math.cos(-b.half)*b.len, Math.sin(-b.half)*b.len);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.translate(b.x,b.y);                              // 灯具
+      ctx.fillStyle='rgba(40,44,56,0.95)'; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(160,175,195,0.8)'; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle=hot>=0.62?`rgba(255,225,150,${0.6+0.4*hot})`:'rgba(150,190,220,0.5)';
+      ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+  }
+  function drawDrafts(){
+    for(const d of drafts){
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g2=ctx.createLinearGradient(0,H,0,H*0.1);
+      g2.addColorStop(0,'rgba(255,190,120,0.22)'); g2.addColorStop(1,'rgba(255,120,80,0)');
+      ctx.fillStyle=g2; ctx.fillRect(d.x-d.w/2,0,d.w,H);
+      ctx.strokeStyle='rgba(255,210,160,0.5)'; ctx.lineWidth=2;        // 上がっていく筋
+      for(let i=0;i<5;i++){
+        const yy=H-((t*3.4+i*H/5+d.ph*40)%(H+40));
+        ctx.globalAlpha=0.45*(yy/H);
+        ctx.beginPath(); ctx.moveTo(d.x-d.w*0.28+Math.sin(yy*0.03+d.ph)*7, yy);
+        ctx.lineTo(d.x+d.w*0.28+Math.sin(yy*0.03+d.ph)*7, yy-16); ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
   function spawnElectric(){ const y=H*0.2+Math.random()*H*0.6; enemies.push({ type:'electric', x:W+40, y, baseY:y, phase:Math.random()*Math.PI*2, amp:H*0.10, r:15 }); }
   function spawnFish(){ const y=H*0.2+Math.random()*H*0.5; const dir=Math.random()<0.5?1:-1; const members=[]; for(let i=0;i<6;i++) members.push({ ox:(Math.random()-0.5)*70, oy:(Math.random()-0.5)*54 }); enemies.push({ type:'fish', x:W+60, y, vy:dir*0.6, members, r:11 }); }
@@ -1502,6 +1568,8 @@
         if(!warm && hasElectric(st.n) && enemyTimer<=0){ spawnElectric(); enemyTimer=Math.max(560-score*3,300)+Math.random()*160; }
         fishTimer-=timeScale;
         if(!warm && hasFish(st.n) && fishTimer<=0){ spawnFish(); fishTimer=Math.max(820-score*3,480)+Math.random()*200; }
+        if(!warm && st.beam){ beamTimer-=timeScale; if(beamTimer<=0){ spawnBeam(); beamTimer=520+Math.random()*260; } }
+        if(!warm && st.updraft){ draftTimer-=timeScale; if(draftTimer<=0){ spawnDraft(); draftTimer=420+Math.random()*260; } }
       }
 
       for(const p of pillars){
@@ -1551,6 +1619,12 @@
           if(boss.timer<=0) endBoss();
         }
       }
+      for(const b of beams) b.x-=sp;
+      beams=beams.filter(b=>b.x>-120);
+      for(const d of drafts){ d.x-=sp;
+        if(Math.abs(jelly.x-d.x)<d.w*0.5){ jelly.vy-=d.power*timeScale; jelly.vy=Math.max(jelly.vy,-H/70); }  // 押し上げ
+      }
+      drafts=drafts.filter(d=>d.x>-120);
       for(const s of shots){ s.x+=s.vx; s.y+=s.vy; }
       shots=shots.filter(s=>s.x>-40&&s.x<W+60&&s.y>-40&&s.y<H+40);
 
@@ -1571,6 +1645,7 @@
       }
       if(state==='play'&&inv<=0&&boss&&!boss.fleeing){ if(Math.hypot(jelly.x-boss.x,jelly.y-boss.y)<r+46){ die(); } }
       if(state==='play'&&inv<=0) for(const s of shots){ if(Math.hypot(jelly.x-s.x,jelly.y-s.y)<r+s.r*0.85){ die(); break; } }
+      if(state==='play'&&inv<=0) for(const b of beams){ if(beamHits(b,jelly.x,jelly.y)){ die(); break; } }
 
     } else if(state==='dying'){
       deathTimer++; jelly.vy+=0.3; jelly.y+=jelly.vy; jelly.tilt+=0.05;
@@ -1836,7 +1911,8 @@
     moray: { body:['#b6f5a0','#5ce87e','#166b3a'], glow:'110,240,140' },
     octo:  { body:['#e0a878','#c56a3a','#5e2a14'], glow:'220,140,80'  },
     ray:   { body:['#ffd08a','#ff7a3c','#8c1e10'], glow:'255,140,60'  },
-    squid: { body:['#c9d6ff','#7a8cf5','#2a1f7a'], glow:'140,140,255' }
+    squid: { body:['#c9d6ff','#7a8cf5','#2a1f7a'], glow:'140,140,255' },
+    angler:{ body:['#7a5ea8','#3d2a5e','#150b26'], glow:'190,130,255' }
   };
   const BOSS_SIL='rgba(126,158,190,0.42)';   // 未撃破シルエット（背景より明るくして形が読めるように）
   function bossBodyFill(g,id,r,sil){
@@ -1898,6 +1974,29 @@
       g.strokeStyle=fill; g.lineWidth=r*0.12;                       // しっぽ
       g.beginPath(); g.moveTo(0,r*0.7); g.quadraticCurveTo(r*0.1,r*1.4,-r*0.1+sw*2,r*1.9); g.stroke();
       bossEyes(g,r,sil,r*0.3,-r*0.35,r*0.13);
+    } else if(id==='angler'){
+      g.strokeStyle=fill; g.lineWidth=r*0.12;                       // ひれ
+      for(const sgn of [-1,1]){ g.beginPath(); g.moveTo(sgn*r*0.7,-r*0.1);
+        g.quadraticCurveTo(sgn*r*1.25,-r*0.5,sgn*r*1.15,r*0.25); g.stroke(); }
+      g.fillStyle=fill; g.beginPath();                              // ずんぐりした体
+      g.moveTo(-r*0.95,r*0.1); g.quadraticCurveTo(-r*0.8,-r*0.85,r*0.1,-r*0.8);
+      g.quadraticCurveTo(r*1.0,-r*0.7,r*1.0,r*0.1);
+      g.quadraticCurveTo(r*0.9,r*0.85,0,r*0.9);
+      g.quadraticCurveTo(-r*0.9,r*0.85,-r*0.95,r*0.1); g.closePath(); g.fill();
+      g.strokeStyle=line; g.lineWidth=r*0.09; g.beginPath();        // ちょうちんの竿
+      g.moveTo(r*0.05,-r*0.78); g.quadraticCurveTo(-r*0.5,-r*1.5,-r*0.95,-r*1.25+sw*2); g.stroke();
+      if(!sil){                                                     // ちょうちんの光
+        g.save(); g.globalCompositeOperation='lighter';
+        const lg=g.createRadialGradient(-r*0.95,-r*1.25,1,-r*0.95,-r*1.25,r*0.9);
+        lg.addColorStop(0,'rgba(255,240,180,0.95)'); lg.addColorStop(1,'rgba(255,220,120,0)');
+        g.fillStyle=lg; g.beginPath(); g.arc(-r*0.95,-r*1.25,r*0.9,0,Math.PI*2); g.fill(); g.restore();
+        g.fillStyle='#fff6c8'; g.beginPath(); g.arc(-r*0.95,-r*1.25,r*0.16,0,Math.PI*2); g.fill();
+      }
+      if(!sil){ g.fillStyle='#f8ffe8'; g.beginPath();                // 牙
+        for(let i=0;i<7;i++){ const x=-r*0.62+i*r*0.2; g.moveTo(x,r*0.3); g.lineTo(x+r*0.07,r*0.62); g.lineTo(x+r*0.15,r*0.3); }
+        for(let i=0;i<6;i++){ const x=-r*0.5+i*r*0.2; g.moveTo(x,r*0.62); g.lineTo(x+r*0.07,r*0.34); g.lineTo(x+r*0.15,r*0.62); }
+        g.fill(); }
+      bossEyes(g,r,sil,r*0.34,-r*0.34,r*0.17);
     } else {  // squid
       g.strokeStyle=fill; g.lineWidth=r*0.13;                       // 長い触腕
       for(const s of [-1,1]){ g.beginPath(); g.moveTo(s*r*0.2,r*0.6);
@@ -1940,21 +2039,63 @@
     if(faceState==='dying') g.arc(0,r*0.35,4,Math.PI*1.15,Math.PI*1.85); else g.arc(0,r*0.22,4.5,Math.PI*0.15,Math.PI*0.85);
     g.stroke(); g.restore(); drawAcc(g,acc,r); g.restore();
   }
+  // 暗幕。クラゲのまわりだけ穴があいたグラデーションを1枚かぶせる。
+  // 端に近いほど暗いだけで完全には消さないので、障害物の気配は読める。
+  function drawDarkness(strength){
+    // 障害物は右から来るので、明かりの中心を少し前（右）にずらして
+    // 反応できるだけの見通しを確保する
+    if(bossActive||boss) strength*=0.55;      // ボス戦は相手が見えないと理不尽なので明るくする
+    const R=Math.min(W,H)*0.40 + Math.sin(t*0.05)*4;
+    const lx=jelly.x+W*0.16, ly=jelly.y;
+    const g2=ctx.createRadialGradient(lx,ly,R*0.34, lx,ly,R*1.9);
+    g2.addColorStop(0,'rgba(2,4,10,0)');
+    g2.addColorStop(0.55,`rgba(2,4,10,${strength*0.55})`);
+    g2.addColorStop(1,`rgba(2,4,10,${strength})`);
+    ctx.save(); ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';                    // クラゲ自身のほのかな光
+    const gl=ctx.createRadialGradient(jelly.x,jelly.y,2,jelly.x,jelly.y,R*0.55);
+    const sk=skinById(selectedSkin);
+    gl.addColorStop(0,`rgba(${sk.glow||'160,190,255'},0.16)`); gl.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(jelly.x,jelly.y,R*0.55,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  // 手前の海藻。障害物を隠しきらないよう、うすく数本だけ。
+  function drawForegroundKelp(st){
+    const rgb=st.vis.plant, n=3;
+    ctx.save(); ctx.globalAlpha=0.42; ctx.lineCap='round';
+    for(let i=0;i<n;i++){
+      const base=(i*W/n + W/n*0.5 - (t*1.3)%(W*1.5) + W*1.5) % (W*1.5) - W*0.25;
+      const sway=Math.sin(t*0.022+i*2.1)*26;
+      ctx.strokeStyle=`rgba(${rgb},0.85)`; ctx.lineWidth=26;
+      ctx.beginPath(); ctx.moveTo(base,H+20);
+      ctx.bezierCurveTo(base+sway*0.5,H*0.62, base-sway*0.6,H*0.32, base+sway,-30);
+      ctx.stroke();
+      ctx.strokeStyle=`rgba(${rgb},0.55)`; ctx.lineWidth=11;
+      ctx.beginPath(); ctx.moveTo(base+34,H+20);
+      ctx.bezierCurveTo(base+34-sway*0.4,H*0.6, base+34+sway*0.5,H*0.3, base+34-sway*0.8,-30);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   function drawParticles(){ for(const pt of particles){ ctx.globalAlpha=Math.max(0,pt.life)*0.8; ctx.fillStyle=`rgba(${pt.color},1)`; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r*pt.life,0,Math.PI*2); ctx.fill(); } ctx.globalAlpha=1; }
   function drawFloaters(){ ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; for(const f of floaters){ ctx.globalAlpha=Math.max(0,f.life); ctx.font=`700 ${f.size}px sans-serif`; ctx.fillStyle=f.color?`rgba(${f.color},1)`:'#eaf6ff'; ctx.fillText(f.text,f.x,f.y); } ctx.restore(); ctx.globalAlpha=1; }
 
   function draw(){
     const bi=biomeAt(score); ctx.save();
     if(shake>0.5) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
-    drawBackground(bi); drawPillars(bi.accent); drawItems();
+    drawBackground(bi); if(drafts.length) drawDrafts(); drawPillars(bi.accent); drawItems();
     for(const en of enemies){ if(en.type==='electric') drawElectric(en); else drawFish(en); }
-    drawBoss(); drawShots();
+    drawBoss(); drawShots(); if(beams.length) drawBeams();
     if(state!=='over'&&state!=='revive'){
       const blink = inv>0 && Math.floor(t/4)%2===0;   // 無敵中は点滅
       if(!blink){ const sk=skinById(selectedSkin); const aj=(typeof activeJelly==='function')?activeJelly():null; drawJellyAt(ctx,sk,jelly.x,jelly.y,1,state, aj?aj.acc:''); }
     }
     if(showHitbox) drawHitboxes();
-    drawParticles(); drawFloaters(); ctx.restore();
+    drawParticles();
+    const _st=stageDef();
+    if(_st.dark && state!=='over') drawDarkness(_st.dark);   // 自分の光の範囲だけ見える
+    if(_st.fg==='kelp') drawForegroundKelp(_st);             // 手前でゆれる海藻
+    drawFloaters(); ctx.restore();
     if(flash>0){ ctx.fillStyle=`rgba(255,255,255,${flash*0.5})`; ctx.fillRect(0,0,W,H); }
   }
   // 開発用: 実際の当たり判定を可視化する（__kurageHitbox(true)）
@@ -3246,6 +3387,9 @@
   window.__kurageStageReset=()=>{ stageData={unlocked:1,rec:{}}; saveStages(); refreshHome(); };
   window.__kurageDex=()=>({ found:dexCount(), dex:JSON.parse(JSON.stringify(bossDex)) });
   window.__kurageDexReset=()=>{ bossDex={}; saveDex(); };
+  window.__kurageGimmick=()=>{ const st=stageDef(); return { n:st.n, name:st.name, boss:st.bossId,
+    fg:st.fg||null, beam:!!st.beam, updraft:!!st.updraft, dark:st.dark||0,
+    live:{ beams:beams.length, drafts:drafts.length } }; };
   window.__kurageShareCard=()=>buildShareCard();
   window.__kurageTitle=()=>({ title:titleFor(), rank:titleRank(), next:nextTitle() });
   window.__kurageGacha=()=>({ phase:gPhase, frame:gFrame, queue:gQueue.length, top:gTop,
