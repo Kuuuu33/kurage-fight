@@ -100,6 +100,19 @@
   #stage-intro .bs { font-size: 12.5px; font-weight: 700; color: var(--text-dim); }
   @media (prefers-reduced-motion: reduce) { #stage-intro { transition: none; } }
 
+  /* ---- 個体の特性 ---- */
+  .trait-card { background: var(--panel); border: 1.5px solid var(--panel-line); border-radius: 14px; padding: 10px 13px; width: min(92%,360px); display: flex; flex-direction: column; gap: 7px; }
+  .trait-card .tr-head { display: flex; align-items: center; gap: 8px; }
+  .trait-card .tr-ic { font-size: 19px; line-height: 1; }
+  .trait-card .tr-nm { font-size: 14.5px; font-weight: 800; color: var(--glow-cyan); }
+  .trait-card .tr-nm.rare { color: var(--score-gold); text-shadow: 0 0 12px rgba(255,217,138,.5); }
+  .trait-card .tr-ds { font-size: 12.5px; color: var(--text-dim); text-align: left; }
+  .trait-card .tr-cost { font-size: 11.5px; color: var(--text-dim); }
+  .shiny-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #2a1030;
+    background: linear-gradient(135deg,#ffe9a8,#ffd166,#ffb3e6); border-radius: 999px; padding: 3px 10px; box-shadow: 0 0 14px rgba(255,209,102,.5); }
+  .tr-chip { font-size: 10.5px; font-weight: 800; color: var(--glow-cyan); background: rgba(92,232,213,.12);
+    border: 1px solid rgba(92,232,213,.3); border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+
   /* ---- gacha ---- */
   #gacha { justify-content: space-between; padding-top: max(14px, env(safe-area-inset-top)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .gacha-top { display: flex; flex-direction: column; align-items: center; gap: 7px; }
@@ -540,6 +553,13 @@
     <canvas id="care-canvas" width="150" height="150" style="width:150px;height:150px"></canvas>
     <div class="care-name-row"><h2 id="care-name">なまえ</h2><button class="btn small" id="care-rename">✏️</button></div>
     <div class="rank-badge" id="care-stage">ベビー ・ Lv1</div>
+    <div id="care-shiny" style="display:none"><span class="shiny-badge">✨ いろちがい</span></div>
+    <div class="trait-card">
+      <div class="tr-head"><span class="tr-ic" id="tr-ic">🫧</span><span class="tr-nm" id="tr-nm">とくせい</span></div>
+      <div class="tr-ds" id="tr-ds"></div>
+      <button class="btn small" id="care-reroll">🔄 とくせいを引き直す</button>
+      <div class="tr-cost" id="tr-cost"></div>
+    </div>
     <div class="care-box">
       <div class="stat-line exp"><span>けいけんち</span><div class="pbar"><i id="care-exp"></i></div></div>
       <div class="stat-line hunger"><span>🍤 おなか</span><div class="pbar"><i id="care-hunger"></i></div></div>
@@ -926,7 +946,7 @@
 
   // ---------- save migration ----------
   // 保存形式にバージョンを持たせる。古いデータは中身を保ったまま読み替える。
-  const SAVE_VER = 2;
+  const SAVE_VER = 3;
   let refundNotice = 0;
   function migrateSave(){
     const ver=parseInt(store.get('kurage-savever','0'),10)||0;
@@ -940,6 +960,18 @@
       pearls+=refund; store.set('kurage-pearls',String(pearls)); saveItems(); refundNotice=refund;
     }
     gameTheme='game_abyss'; store.set('kurage-gametheme','game_abyss');
+    // v3: 個体に特性と色違いを導入。すでにいる子にもさかのぼって抽選する。
+    try{
+      const js=getJSON('kurage-jellies',null);
+      if(Array.isArray(js)){
+        let changed=false;
+        for(const j of js){
+          if(!j.trait){ j.trait=rollTrait(); changed=true; }
+          if(j.shiny===undefined){ j.shiny=rollShiny(); changed=true; }
+        }
+        if(changed) store.set('kurage-jellies', JSON.stringify(js));
+      }
+    }catch(e){}
     store.set('kurage-savever', String(SAVE_VER));
   }
   migrateSave();
@@ -1198,7 +1230,15 @@
     // active jelly: appearance + level advantage (higher level = more start-shield & pearl bonus)
     jellyPearlBonus = 1;
     const aj = (typeof activeJelly==='function') ? activeJelly() : null;
-    if(aj){ selectedSkin = aj.skinId; const L = levelOf(aj); power.shield = Math.max(power.shield, Math.min(L*8, 240)); jellyPearlBonus = 1 + Math.min(L*0.01, 0.5); }
+    if(aj){
+      selectedSkin = aj.skinId; const L = levelOf(aj);
+      power.shield = Math.max(power.shield, Math.min(L*8, 240));
+      jellyPearlBonus = 1 + Math.min(L*0.01, 0.5);
+      // ---- 特性 ----
+      if(hasTrait(aj,'pearl')) jellyPearlBonus *= 1.15;
+      if(hasTrait(aj,'guard')) power.shield += 120;
+      if(hasTrait(aj,'tough')){ maxHearts += 1; hearts = maxHearts; }
+    }
   }
 
   function initBubbles(){ bubbles=[]; for(let i=0;i<26;i++) bubbles.push({ x:Math.random()*W, y:Math.random()*H, r:1+Math.random()*3, s:.2+Math.random()*.5, drift:Math.random()*Math.PI*2 }); }
@@ -1378,7 +1418,8 @@
 
   function activatePower(kind){
     let dur=POWER_META[kind].dur;
-    if(kind==='magnet') dur += UPGRADES.find(u=>u.id==='magnetPlus').vals[upgrades.magnetPlus]||0;
+    if(kind==='magnet'){ dur += UPGRADES.find(u=>u.id==='magnetPlus').vals[upgrades.magnetPlus]||0;
+      if(hasTrait(activeJelly(),'magnet')) dur=Math.round(dur*1.5); }
     power[kind]=dur; sfx.power(); vibrate(30);
     if(kind==='shield') stats.shields=(stats.shields||0)+1;
     if(kind==='magnet') stats.magnets=(stats.magnets||0)+1;
@@ -1447,11 +1488,11 @@
   // プレイ後に必ず配る報酬（エサ＋けいけんち）。ゲームオーバーでもクリアでも同じ計算。
   function grantRunRewards(bonusMul){
     const mul=bonusMul||1;
-    const foodGain=Math.max(1, Math.round((score*0.6 + runBosses*3)*mul));
-    food+=foodGain; saveFood();
     const aj=activeJelly();
+    const foodGain=Math.max(1, Math.round((score*0.6 + runBosses*3)*mul*(hasTrait(aj,'food')?1.3:1)));
+    food+=foodGain; saveFood();
     if(!aj) return '🍤 +'+foodGain+' エサ';
-    const expGain=Math.round((score*2 + runBosses*20)*mul);
+    const expGain=Math.round((score*2 + runBosses*20)*mul*(hasTrait(aj,'exp')?1.2:1));
     const up=addExp(aj, expGain);
     return '🍤 +'+foodGain+' エサ　・　⭐ '+aj.name+' に +'+expGain+' けいけんち'+(up>0?'　<span class="new">Lv'+levelOf(aj)+'！</span>':'');
   }
@@ -1555,7 +1596,7 @@
       jelly.vy+=g; jelly.vy=Math.min(jelly.vy,H/80); jelly.y+=jelly.vy*timeScale;
       jelly.tilt+=((jelly.vy*0.035)-jelly.tilt)*0.1; jelly.pulse*=0.92;
 
-      const sp=(Math.max(2.0,W/280)+Math.min(score*0.035,1.6))*timeScale*diff().speedMul*stageDef().speed;
+      const sp=(Math.max(2.0,W/280)+Math.min(score*0.035,1.6))*timeScale*diff().speedMul*stageDef().speed*(hasTrait(activeJelly(),'calm')?0.94:1);
 
       const st=stageDef();
       if(!bossActive && !boss && score>=st.len) startBoss();
@@ -1591,7 +1632,9 @@
         const dx=jelly.x-it.x, dy=jelly.y-it.y;
         if(Math.hypot(dx,dy)<jelly.r+it.r){
           it.taken=true;
-          if(it.kind==='pearl'){ bumpCombo(); const val=1+Math.floor(combo/8); addPearls(val); sfx.pearl();
+          if(it.kind==='pearl'){ bumpCombo(); let val=1+Math.floor(combo/8);
+            if(hasTrait(activeJelly(),'lucky')&&Math.random()<0.18) val*=2;
+            addPearls(val); sfx.pearl();
             floaters.push({ x:it.x, y:it.y, text:'+'+val, life:1, vy:-1, size:16, color:'255,217,138' });
             for(let i=0;i<6;i++) particles.push({ x:it.x, y:it.y, vx:(Math.random()-0.5)*3, vy:(Math.random()-0.5)*3, life:1, r:1.5+Math.random()*2, color:'255,235,180' });
           } else activatePower(it.kind);
@@ -2019,7 +2062,7 @@
     ctx.fillStyle='#ff7a5a'; ctx.beginPath(); ctx.arc(0,0,s.r,0,Math.PI*2); ctx.fill(); ctx.restore(); } }
 
   function rainbowColor(off){ return `hsl(${(t*2+off)%360},85%,70%)`; }
-  function drawJellyAt(g,sk,cx,cy,scale,faceState,acc){
+  function drawJellyAt(g,sk,cx,cy,scale,faceState,acc,shiny){
     g.save(); g.translate(cx,cy); g.scale(scale,scale); g.rotate(jelly.tilt);
     const r=jelly.r, isRainbow=sk.bell==='rainbow';
     const squish=1+jelly.pulse*0.25, breathe=1+Math.sin(t*0.08)*0.04;
@@ -2037,7 +2080,7 @@
     g.save(); g.fillStyle='rgba(40,30,60,0.8)'; g.beginPath(); g.arc(-r*0.3,r*0.05,2.6,0,Math.PI*2); g.arc(r*0.3,r*0.05,2.6,0,Math.PI*2); g.fill();
     g.strokeStyle='rgba(40,30,60,0.7)'; g.lineWidth=1.8; g.lineCap='round'; g.beginPath();
     if(faceState==='dying') g.arc(0,r*0.35,4,Math.PI*1.15,Math.PI*1.85); else g.arc(0,r*0.22,4.5,Math.PI*0.15,Math.PI*0.85);
-    g.stroke(); g.restore(); drawAcc(g,acc,r); g.restore();
+    g.stroke(); g.restore(); drawAcc(g,acc,r); if(shiny) drawShinySparkle(g,r); g.restore();
   }
   // 暗幕。クラゲのまわりだけ穴があいたグラデーションを1枚かぶせる。
   // 端に近いほど暗いだけで完全には消さないので、障害物の気配は読める。
@@ -2088,7 +2131,7 @@
     drawBoss(); drawShots(); if(beams.length) drawBeams();
     if(state!=='over'&&state!=='revive'){
       const blink = inv>0 && Math.floor(t/4)%2===0;   // 無敵中は点滅
-      if(!blink){ const sk=skinById(selectedSkin); const aj=(typeof activeJelly==='function')?activeJelly():null; drawJellyAt(ctx,sk,jelly.x,jelly.y,1,state, aj?aj.acc:''); }
+      if(!blink){ const aj=(typeof activeJelly==='function')?activeJelly():null; const sk=aj?skinFor(aj):skinById(selectedSkin); drawJellyAt(ctx,sk,jelly.x,jelly.y,1,state, aj?aj.acc:'', aj&&aj.shiny); }
     }
     if(showHitbox) drawHitboxes();
     drawParticles();
@@ -2142,7 +2185,47 @@
   }
 
   function skinPreview(sk){ const c=document.createElement('canvas'); c.width=124; c.height=124; const g=c.getContext('2d'); g.translate(62,58); g.scale(1.25,1.25); drawJellyPreview(g,sk); return c; }
-  function drawJellyPreview(g,sk,acc){
+  // ---------- 色違い ----------
+  // 既存スキンの色を色相回転させて作る（画像素材を増やさない）。結果はキャッシュ。
+  const SHINY_SHIFT=152, _shinyCache={};
+  function hexShift(hex,deg){
+    const n=parseInt(hex.slice(1),16); let r=(n>>16&255)/255, g2=(n>>8&255)/255, b=(n&255)/255;
+    const mx=Math.max(r,g2,b), mn=Math.min(r,g2,b), l=(mx+mn)/2; let h=0, s=0;
+    if(mx!==mn){ const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+      h=mx===r?((g2-b)/d+(g2<b?6:0)):mx===g2?((b-r)/d+2):((r-g2)/d+4); h/=6; }
+    h=(h+deg/360)%1;
+    const hue2=(p,q,tt)=>{ if(tt<0)tt+=1; if(tt>1)tt-=1;
+      if(tt<1/6) return p+(q-p)*6*tt; if(tt<1/2) return q; if(tt<2/3) return p+(q-p)*(2/3-tt)*6; return p; };
+    const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    const to=(v)=>Math.round(Math.max(0,Math.min(1,v))*255);
+    return '#'+[to(hue2(p,q,h+1/3)),to(hue2(p,q,h)),to(hue2(p,q,h-1/3))].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+  function rgbShift(str,deg){ const hex=hexShift('#'+str.split(',').map(v=>(+v).toString(16).padStart(2,'0')).join(''),deg);
+    const n=parseInt(hex.slice(1),16); return [n>>16&255,n>>8&255,n&255].join(','); }
+  function shinySkin(sk){
+    if(sk.bell==='rainbow') return sk;                       // にじいろはそのまま
+    if(_shinyCache[sk.id]) return _shinyCache[sk.id];
+    const out=Object.assign({}, sk, {
+      bell: sk.bell.map(c=>hexShift(c,SHINY_SHIFT)),
+      tent: sk.tent.map(c=>rgbShift(c,SHINY_SHIFT)),
+      glow: rgbShift(sk.glow,SHINY_SHIFT)
+    });
+    _shinyCache[sk.id]=out; return out;
+  }
+  // その子の見た目（色違いなら色相回転版）
+  function skinFor(j){ const sk=skinById(j&&j.skinId); return (j&&j.shiny)?shinySkin(sk):sk; }
+  function drawShinySparkle(g,r){
+    for(let i=0;i<3;i++){
+      const a=t*0.05+i*2.1, rr=r*(1.25+0.12*Math.sin(t*0.08+i));
+      const x=Math.cos(a)*rr, y=Math.sin(a)*rr*0.75-r*0.2;
+      const s=r*(0.11+0.05*Math.abs(Math.sin(t*0.13+i*1.7)));
+      g.save(); g.translate(x,y); g.fillStyle='rgba(255,255,235,0.92)';
+      g.beginPath(); g.moveTo(0,-s); g.lineTo(s*0.32,-s*0.32); g.lineTo(s,0); g.lineTo(s*0.32,s*0.32);
+      g.lineTo(0,s); g.lineTo(-s*0.32,s*0.32); g.lineTo(-s,0); g.lineTo(-s*0.32,-s*0.32);
+      g.closePath(); g.fill(); g.restore();
+    }
+  }
+  function drawJellyPreview(g,sk,acc,shiny){
     const r=22, isRainbow=sk.bell==='rainbow'; g.save(); g.lineCap='round';
     for(let i=0;i<5;i++){ const off=(i-2)*(r*0.32); g.strokeStyle=isRainbow?`hsl(${i*60},85%,70%)`:(i%2===0?`rgba(${sk.tent[0]},0.8)`:`rgba(${sk.tent[1]},0.7)`); g.lineWidth=2.5; g.beginPath(); g.moveTo(off,r*0.5); g.bezierCurveTo(off,r*1.2,off+3,r*1.8,off,r*2.2); g.stroke(); } g.restore();
     let bell=g.createRadialGradient(-r*0.3,-r*0.4,r*0.2,0,0,r*1.2);
@@ -2151,6 +2234,7 @@
     g.fillStyle='rgba(40,30,60,0.8)'; g.beginPath(); g.arc(-r*0.3,r*0.05,2.6,0,Math.PI*2); g.arc(r*0.3,r*0.05,2.6,0,Math.PI*2); g.fill();
     g.strokeStyle='rgba(40,30,60,0.7)'; g.lineWidth=1.8; g.lineCap='round'; g.beginPath(); g.arc(0,r*0.22,4.5,Math.PI*0.15,Math.PI*0.85); g.stroke();
     drawAcc(g,acc,r);
+    if(shiny) drawShinySparkle(g,r);
   }
 
   // ---------- boss dex screen ----------
@@ -2416,13 +2500,43 @@
   }
 
   function newId(){ return 'j'+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36); }
-  function makeJelly(skinId,name){ return { id:newId(), name:name||JELLY_NAMES[Math.floor(Math.random()*JELLY_NAMES.length)], skinId:skinId||'pink', exp:0, hunger:80, mood:80, clean:80, acc:'', bornAt:Date.now() }; }
+  // ---------- 個体差（特性・色違い） ----------
+  // 特性はその子を出撃させているあいだだけ効く。重み付きで抽選し、まれに強いものが出る。
+  const TRAITS = [
+    { id:'pearl',  ic:'🫧', name:'たからさがし', desc:'集めた真珠が +15%',        w:16 },
+    { id:'exp',    ic:'⭐', name:'のみこみが早い', desc:'もらえるけいけんち +20%', w:16 },
+    { id:'food',   ic:'🍤', name:'食いしんぼう',  desc:'もらえるエサ +30%',       w:16 },
+    { id:'magnet', ic:'🧲', name:'ひきよせ',      desc:'マグネットの時間が1.5倍',  w:14 },
+    { id:'guard',  ic:'🛡️', name:'かたいかさ',    desc:'開始時のバリアが長い',     w:14 },
+    { id:'lucky',  ic:'🍀', name:'しあわせもの',  desc:'ときどき真珠が2個ぶん',    w:12 },
+    { id:'calm',   ic:'🐌', name:'ゆうゆう',      desc:'流れが少しゆっくり',       w:7,  rare:1 },
+    { id:'tough',  ic:'❤️', name:'ふんばり',      desc:'ハートが1つ多い',          w:5,  rare:1 }
+  ];
+  const TRAIT_W = TRAITS.reduce((a,t)=>a+t.w,0);
+  function traitById(id){ return TRAITS.find(t=>t.id===id)||null; }
+  function rollTrait(){ let r=Math.random()*TRAIT_W; for(const t of TRAITS){ r-=t.w; if(r<0) return t.id; } return TRAITS[0].id; }
+  const SHINY_RATE=0.03;
+  function rollShiny(){ return Math.random()<SHINY_RATE; }
+  function traitOf(j){ return j&&j.trait?traitById(j.trait):null; }
+  function hasTrait(j,id){ return !!(j&&j.trait===id); }
+
+  function makeJelly(skinId,name){ return { id:newId(), name:name||JELLY_NAMES[Math.floor(Math.random()*JELLY_NAMES.length)], skinId:skinId||'pink', exp:0, hunger:80, mood:80, clean:80, acc:'', bornAt:Date.now(), trait:rollTrait(), shiny:rollShiny() }; }
   function saveJellies(){ store.set('kurage-jellies', JSON.stringify(jellies)); }
   function saveActive(){ store.set('kurage-active', activeId); }
   function saveFood(){ store.set('kurage-food', String(food)); }
+  function ensureTraits(){
+    if(!Array.isArray(jellies)) return;
+    let changed=false;
+    for(const j of jellies){
+      if(!j.trait){ j.trait=rollTrait(); changed=true; }
+      if(j.shiny===undefined){ j.shiny=rollShiny(); changed=true; }
+    }
+    if(changed) saveJellies();
+  }
   function ensureJellies(){
     if(!Array.isArray(jellies)||jellies.length===0){ const j=makeJelly(selectedSkin||'pink','はじめての子'); jellies=[j]; activeId=j.id; saveJellies(); saveActive(); }
     if(!jellies.find(j=>j.id===activeId)){ activeId=jellies[0].id; saveActive(); }
+    ensureTraits();
   }
   function activeJelly(){ return (jellies&&(jellies.find(j=>j.id===activeId)||jellies[0]))||null; }
   function caringJelly(){ return jellies&&jellies.find(j=>j.id===caringId); }
@@ -2474,12 +2588,12 @@
     }
   }
   function drawTankJelly(j){
-    const sk=skinById(j.skinId); const sc=stageScaleOf(j); const well=wellbeing(j);
+    const sk=skinFor(j); const sc=stageScaleOf(j); const well=wellbeing(j);
     ctx.save();
     ctx.translate(j.ax, j.ay+Math.sin(t*0.04+j.phase)*4);
     ctx.rotate(Math.sin(t*0.02+j.phase)*0.12); ctx.scale(sc,sc);
     ctx.globalAlpha=0.55+0.45*(well/100);
-    drawJellyPreview(ctx, sk, j.acc);
+    drawJellyPreview(ctx, sk, j.acc, j.shiny);
     ctx.restore();
     ctx.save(); ctx.globalAlpha=0.92; ctx.textAlign='center';
     ctx.font='600 11px sans-serif'; ctx.fillStyle='#dbeef7';
@@ -2547,7 +2661,7 @@
   function enterFromOpening(){ ensureAudio(); startHealing(); showHome(); }
 
   function setBar(id,val){ const el=document.getElementById(id); if(el) el.style.width=Math.max(0,Math.min(100,val))+'%'; }
-  function drawIntoCanvas(canvasId, sk, scale, acc){ const c=document.getElementById(canvasId); if(!c) return; const g=c.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,c.width,c.height); g.save(); g.translate(c.width/2, c.height/2+8); g.scale(scale,scale); drawJellyPreview(g, sk, acc); g.restore(); }
+  function drawIntoCanvas(canvasId, sk, scale, acc, shiny){ const c=document.getElementById(canvasId); if(!c) return; const g=c.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,c.width,c.height); g.save(); g.translate(c.width/2, c.height/2+8); g.scale(scale,scale); drawJellyPreview(g, sk, acc, shiny); g.restore(); }
   function renderCareAcc(j){
     const box=document.getElementById('care-acc'); if(!box) return; box.innerHTML='';
     const owned=ACCS.filter(a=>ownsItem(a.id));
@@ -2558,11 +2672,12 @@
   }
   function renderCare(){
     const j=caringJelly(); if(!j){ showHome(); return; }
-    drawIntoCanvas('care-canvas', skinById(j.skinId), 1.7*stageScaleOf(j), j.acc);
+    drawIntoCanvas('care-canvas', skinFor(j), 1.7*stageScaleOf(j), j.acc, j.shiny);
     document.getElementById('care-name').textContent=j.name;
     document.getElementById('care-stage').textContent=STAGE_NAMES[stageIndex(j)]+' ・ Lv'+levelOf(j);
     setBar('care-exp', expInLevel(j)); setBar('care-hunger', j.hunger); setBar('care-mood', j.mood); setBar('care-clean', j.clean);
     document.getElementById('care-food').textContent=food;
+    renderTrait(j);
     renderCareAcc(j);
     const ab=document.getElementById('care-active');
     if(j.id===activeId){ ab.textContent='★ 出撃メンバー'; ab.disabled=true; } else { ab.textContent='この子を出撃メンバーにする'; ab.disabled=false; }
@@ -2572,6 +2687,34 @@
   function careFeed(){ const j=caringJelly(); if(!j) return; if(food<=0){ showToast('エサがないよ。あそぶと手に入る！'); return; } if(j.hunger>=100){ showToast('おなかいっぱいみたい'); return; } food-=1; saveFood(); j.hunger=clampStat(j.hunger+34); const up=addExp(j,10); sfx.pearl(); vibrate(20); renderCare(); careLevelToast(j,up); }
   function carePlay(){ const j=caringJelly(); if(!j) return; if(j.mood>=100){ showToast('ごきげんそのもの！'); return; } j.mood=clampStat(j.mood+30); const up=addExp(j,8); sfx.coin(); vibrate(20); renderCare(); careLevelToast(j,up); }
   function careClean(){ const j=caringJelly(); if(!j) return; if(j.clean>=100){ showToast('ピカピカだよ'); return; } openScrub(); }
+  // 特性の表示と引き直し。真珠とエサの両方を使うので、余りがちなエサの出口にもなる。
+  const REROLL_PEARL=250, REROLL_FOOD=20;
+  function renderTrait(j){
+    const tr=traitOf(j);
+    document.getElementById('care-shiny').style.display=j.shiny?'':'none';
+    document.getElementById('tr-ic').textContent=tr?tr.ic:'❔';
+    const nm=document.getElementById('tr-nm');
+    nm.textContent=tr?tr.name:'なし'; nm.className='tr-nm'+(tr&&tr.rare?' rare':'');
+    document.getElementById('tr-ds').textContent=tr?tr.desc:'';
+    const btn=document.getElementById('care-reroll');
+    const can=pearls>=REROLL_PEARL && food>=REROLL_FOOD;
+    btn.disabled=!can;
+    document.getElementById('tr-cost').textContent='🫧 '+REROLL_PEARL+' ・ 🍤 '+REROLL_FOOD+'（もっている: 🫧'+pearls+' 🍤'+food+'）';
+  }
+  function careReroll(){
+    const j=caringJelly(); if(!j) return;
+    if(pearls<REROLL_PEARL || food<REROLL_FOOD){ showToast('真珠かエサが足りないよ'); return; }
+    pearls-=REROLL_PEARL; store.set('kurage-pearls',String(pearls)); pearlHud.textContent=pearls;
+    food-=REROLL_FOOD; saveFood();
+    const before=j.trait;
+    let next=rollTrait(), guard=0;
+    while(next===before && guard++<8) next=rollTrait();   // 同じものが続くとつらいので引き直す
+    j.trait=next; saveJellies();
+    const tr=traitById(next);
+    sfx.win(); vibrate([20,30]);
+    showToast(tr.ic+' 「'+tr.name+'」になった！');
+    renderCare(); refreshHome();
+  }
   function careRename(){ const j=caringJelly(); if(!j) return; openRename(j); }
   function openRename(j){
     const modal=document.getElementById('rename-modal'); const input=document.getElementById('rename-input');
@@ -2670,7 +2813,7 @@
       ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(cx,cy,150,0,Math.PI*2); ctx.fill(); ctx.restore();
       ctx.save(); ctx.translate(cx, cy+(1-e)*40); const sc=(0.4+e*1.3)*over;
       ctx.scale(sc,sc); ctx.rotate(Math.sin(t*0.03)*0.08);
-      drawJellyPreview(ctx, skinById(gCur.skin.id), '');
+      drawJellyPreview(ctx, skinFor(gCur.jelly), '', gCur.jelly.shiny);
       ctx.restore();
     }
     for(const s of gShards){ ctx.save(); ctx.globalAlpha=Math.max(0,s.life); ctx.translate(s.x,s.y); ctx.rotate(s.rot);
@@ -2746,7 +2889,9 @@
     const st=document.getElementById('rv-stars'); st.textContent=rr.stars; st.style.color=rr.color;
     st.style.textShadow='0 0 16px rgba('+rr.glow+',.9)';
     document.getElementById('rv-name').textContent=r.jelly.name;
-    document.getElementById('rv-skin').textContent=r.skin.name+(r.dup?'':'　✨ ずかんに新登場！');
+    const _tr=traitOf(r.jelly);
+    document.getElementById('rv-skin').innerHTML=(r.jelly.shiny?'<span class="shiny-badge">✨ いろちがい</span> ':'')
+      +r.skin.name+(r.dup?'':'　✨ ずかんに新登場！')+(_tr?'<br><span class="tr-chip">'+_tr.ic+' '+_tr.name+'</span>':'');
     document.getElementById('rv-dup').textContent=r.dup?('かぶり → 🫧 '+r.back+' にかえた'):'';
     el.classList.remove('hide');
     document.getElementById('gacha-btns').style.display='';
@@ -2758,11 +2903,12 @@
     cell.style.animationDelay=(Math.random()*0.1)+'s';
     cell.style.borderColor='rgba('+rr.glow+',.55)';
     const c=document.createElement('canvas'); c.width=100; c.height=100;
-    const g=c.getContext('2d'); g.translate(50,54); g.scale(0.92,0.92); drawJellyPreview(g, skinById(r.skin.id), '');
+    const g=c.getContext('2d'); g.translate(50,54); g.scale(0.92,0.92); drawJellyPreview(g, skinFor(r.jelly), '', r.jelly.shiny);
     cell.appendChild(c);
     const st=document.createElement('div'); st.className='st'; st.textContent=rr.stars; st.style.color=rr.color; cell.appendChild(st);
     const nm=document.createElement('div'); nm.className='nm'; nm.textContent=r.skin.name;
     if(!r.dup){ nm.textContent='✨'+r.skin.name; nm.style.color='var(--glow-cyan)'; nm.style.fontWeight='800'; }
+    if(r.jelly.shiny){ nm.textContent='✨いろちがい'; nm.style.color='#ffd166'; nm.style.fontWeight='800'; cell.style.boxShadow='0 0 16px rgba(255,209,102,.6)'; }
     cell.appendChild(nm);
     return cell;
   }
@@ -3093,9 +3239,11 @@
     for(const j of jellies){
       const card=document.createElement('div'); card.className='row-card'; const top=document.createElement('div'); top.className='top';
       const c=document.createElement('canvas'); c.width=72; c.height=72; c.style.width='52px'; c.style.height='52px';
-      const g=c.getContext('2d'); g.translate(36,34); const s=0.95*stageScaleOf(j); g.scale(s,s); drawJellyPreview(g, skinById(j.skinId), j.acc);
+      const g=c.getContext('2d'); g.translate(36,34); const s=0.95*stageScaleOf(j); g.scale(s,s); drawJellyPreview(g, skinFor(j), j.acc, j.shiny);
       const info=document.createElement('div'); info.style.textAlign='left'; info.style.flex='1';
-      info.innerHTML='<div class="nm">'+j.name+(j.id===activeId?' ★':'')+'</div><div class="ds">'+STAGE_NAMES[stageIndex(j)]+' ・ Lv'+levelOf(j)+'</div>';
+      const _tr=traitOf(j);
+      info.innerHTML='<div class="nm">'+j.name+(j.id===activeId?' ★':'')+(j.shiny?' <span class="shiny-badge">✨</span>':'')+'</div>'+
+        '<div class="ds">'+STAGE_NAMES[stageIndex(j)]+' ・ Lv'+levelOf(j)+(_tr?' <span class="tr-chip">'+_tr.ic+' '+_tr.name+'</span>':'')+'</div>';
       const btn=document.createElement('button'); btn.className='up-buy'; btn.textContent='この子で'; btn.addEventListener('click',()=>playWith(j));
       top.appendChild(c); top.appendChild(info); top.appendChild(btn); card.appendChild(top); list.appendChild(card);
     }
@@ -3285,6 +3433,7 @@
   document.getElementById('care-playbtn').addEventListener('click',carePlay);
   document.getElementById('care-cleanbtn').addEventListener('click',careClean);
   document.getElementById('care-rename').addEventListener('click',careRename);
+  document.getElementById('care-reroll').addEventListener('click',careReroll);
   document.getElementById('rename-ok').addEventListener('click',commitRename);
   document.getElementById('rename-cancel').addEventListener('click',closeRename);
   document.getElementById('rename-input').addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); commitRename(); } else if(e.key==='Escape'){ e.preventDefault(); closeRename(); } });
@@ -3387,6 +3536,13 @@
   window.__kurageStageReset=()=>{ stageData={unlocked:1,rec:{}}; saveStages(); refreshHome(); };
   window.__kurageDex=()=>({ found:dexCount(), dex:JSON.parse(JSON.stringify(bossDex)) });
   window.__kurageDexReset=()=>{ bossDex={}; saveDex(); };
+  window.__kurageTraits=()=>({ list:TRAITS.map(t=>t.id),
+    jellies:(jellies||[]).map(j=>({name:j.name, skin:j.skinId, trait:j.trait, shiny:!!j.shiny})),
+    active:(()=>{ const a=activeJelly(); return a?{name:a.name,trait:a.trait,shiny:!!a.shiny}:null; })(),
+    reroll:{ pearl:REROLL_PEARL, food:REROLL_FOOD } });
+  window.__kurageSetTrait=(id)=>{ const a=activeJelly(); if(a){ a.trait=id; saveJellies(); } return a&&a.trait; };
+  window.__kurageSetShiny=(v)=>{ const a=activeJelly(); if(a){ a.shiny=!!v; saveJellies(); } return a&&a.shiny; };
+  window.__kurageRollTraits=(n)=>{ const o={}; for(let i=0;i<n;i++){ const k=rollTrait(); o[k]=(o[k]||0)+1; } return o; };
   window.__kurageGimmick=()=>{ const st=stageDef(); return { n:st.n, name:st.name, boss:st.bossId,
     fg:st.fg||null, beam:!!st.beam, updraft:!!st.updraft, dark:st.dark||0,
     live:{ beams:beams.length, drafts:drafts.length } }; };
