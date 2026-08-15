@@ -100,6 +100,46 @@
   #stage-intro .bs { font-size: 12.5px; font-weight: 700; color: var(--text-dim); }
   @media (prefers-reduced-motion: reduce) { #stage-intro { transition: none; } }
 
+  /* ---- gacha ---- */
+  #gacha { justify-content: space-between; padding-top: max(14px, env(safe-area-inset-top)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .gacha-top { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .gacha-mid { flex: 1; pointer-events: none; }
+  .gacha-bal { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--panel-line); border-radius: 999px; padding: 7px 15px; font-size: 15px; font-weight: 800; color: var(--score-gold); font-variant-numeric: tabular-nums; }
+  .gacha-pity { font-size: 11.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .gacha-btns { display: flex; flex-direction: column; align-items: center; gap: 9px; width: min(94%, 400px); }
+  .gacha-pull {
+    font-family: inherit; cursor: pointer; width: 100%; border: none; border-radius: 16px; padding: 13px 16px;
+    font-weight: 800; font-size: 16px; color: #062033; background: linear-gradient(135deg,#5ce8d5,#57b8f0);
+    box-shadow: 0 0 22px rgba(92,232,213,.3); display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .gacha-pull.ten { background: linear-gradient(135deg,#ffd166,#ff9e6b); color: #3a2200; box-shadow: 0 0 22px rgba(255,209,102,.3); }
+  .gacha-pull .c { font-size: 13.5px; opacity: .85; font-variant-numeric: tabular-nums; }
+  .gacha-pull:disabled { background: rgba(255,255,255,.1); color: #7f93a4; box-shadow: none; cursor: default; }
+  .gacha-pull:active:not(:disabled) { transform: scale(.97); }
+  .gacha-note { font-size: 11.5px; color: var(--text-dim); text-align: center; line-height: 1.7; }
+
+  /* single reveal */
+  /* お披露目のテキストは、キャンバスに描かれるクラゲ（画面の42%あたり）の下に置く */
+  #gacha-reveal { position: absolute; left: 0; right: 0; top: 51%; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; padding: 0 18px; }
+  #gacha-reveal.hide { display: none; }
+  .rv-stars { font-size: 19px; letter-spacing: .12em; font-weight: 800; }
+  .rv-name { font-size: 23px; font-weight: 800; color: #eaf6ff; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+  .rv-skin { font-size: 13.5px; font-weight: 700; color: var(--text-dim); }
+  .rv-dup { font-size: 12.5px; font-weight: 700; color: var(--score-gold); }
+
+  /* ten-pull summary */
+  #gacha-result { pointer-events: auto; background: rgba(4,10,20,.86); backdrop-filter: blur(3px); z-index: 60; justify-content: flex-start; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: 28px; }
+  #gacha-result h2 { margin: 2px 0 0; font-size: 21px; color: var(--jelly-pink); }
+  #gr-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; width: min(96%, 420px); }
+  .gr-cell { background: var(--panel); border: 1.5px solid var(--panel-line); border-radius: 12px; padding: 6px 3px 5px; display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; transform: scale(.7); animation: grpop .32s ease forwards; }
+  @keyframes grpop { to { opacity: 1; transform: scale(1); } }
+  .gr-cell canvas { width: 100%; height: auto; aspect-ratio: 1; }
+  .gr-cell .st { font-size: 9.5px; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+  .gr-cell .nm { font-size: 9.5px; color: var(--text-dim); line-height: 1.2; text-align: center; }
+  .gr-cell.new { box-shadow: 0 0 14px rgba(92,232,213,.45); }
+  .gr-cell .new-tag { position: absolute; }
+  @media (prefers-reduced-motion: reduce) { .gr-cell { animation: none; opacity: 1; transform: none; } }
+
   /* ---- boss dex ---- */
   .dex-hide { display: none !important; }
   #dex-count { font-size: 13.5px; font-weight: 800; color: var(--score-gold); }
@@ -475,7 +515,7 @@
       <div id="home-daily-slot"></div>
       <button class="btn primary start-btn" id="home-play">▶ あそぶ</button>
       <div class="btn-row">
-        <button class="btn small" id="home-hatch">🥚 タマゴ</button>
+        <button class="btn small" id="home-hatch">🥚 ガチャ</button>
         <button class="btn small" id="home-fish">🎣 つり</button>
         <button class="btn small" id="home-daily" style="display:none">📅 デイリー</button>
         <button class="btn small" id="home-shop">🪼 むかえる</button>
@@ -570,15 +610,36 @@
     </div>
   </div>
 
-  <!-- Hatch egg -->
-  <div id="hatch" class="overlay panel hidden">
-    <h2>タマゴをかえす</h2>
-    <p class="subtitle">真珠でタマゴを買うと、新しいクラゲがうまれるよ。どの子がうまれるかはお楽しみ！</p>
-    <div class="bal">🫧 <span id="hatch-pearls">0</span> 真珠</div>
-    <canvas id="hatch-canvas" width="150" height="150" style="width:140px;height:140px"></canvas>
-    <div id="hatch-result" class="subtitle"></div>
-    <button class="btn primary start-btn" id="hatch-buy">🥚 タマゴをかえす（🫧<span id="hatch-cost">90</span>）</button>
-    <div class="btn-row"><button class="btn primary shop-back">もどる</button></div>
+  <!-- Gacha (タマゴガチャ) -->
+  <div id="gacha" class="overlay hidden">
+    <div class="gacha-top">
+      <div class="gacha-bal">🫧 <span id="gacha-pearls">0</span> 真珠</div>
+      <div class="gacha-pity" id="gacha-pity"></div>
+    </div>
+
+    <div class="gacha-mid"></div>
+    <div id="gacha-reveal" class="hide">
+      <div class="rv-stars" id="rv-stars">★</div>
+      <div class="rv-name" id="rv-name">なまえ</div>
+      <div class="rv-skin" id="rv-skin"></div>
+      <div class="rv-dup" id="rv-dup"></div>
+    </div>
+
+    <div class="gacha-btns" id="gacha-btns">
+      <button class="gacha-pull" id="gacha-one">🥚 1回ひく<span class="c">🫧 <span id="cost-one">300</span></span></button>
+      <button class="gacha-pull ten" id="gacha-ten">🥚 10回ひく<span class="c">🫧 <span id="cost-ten">2700</span>・★3以上かくてい</span></button>
+      <div class="gacha-note" id="gacha-note"></div>
+      <div class="btn-row"><button class="btn primary shop-back">もどる</button></div>
+    </div>
+  </div>
+
+  <!-- Gacha: 10連の結果 -->
+  <div id="gacha-result" class="overlay hidden">
+    <h2>10回の けっか</h2>
+    <div class="gacha-bal" id="gr-summary">✨ あたらしく 0 種</div>
+    <div id="gr-grid"></div>
+    <div class="gacha-note" id="gr-note"></div>
+    <div class="btn-row"><button class="btn primary" id="gr-close">とじる</button></div>
   </div>
 
   <!-- Select jelly for play -->
@@ -722,7 +783,7 @@
   const dataEl = document.getElementById('data');
   const aquaEl = document.getElementById('aquarium');
   const careEl = document.getElementById('care');
-  const hatchEl = document.getElementById('hatch');
+  const gachaEl = document.getElementById('gacha');
   const selEl = document.getElementById('select');
   const openingEl = document.getElementById('opening');
   const exEl = document.getElementById('exchange');
@@ -730,7 +791,7 @@
   const fishEl = document.getElementById('fishing');
   const toastEl = document.getElementById('toast');
 
-  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish','kurage-a2hs','kurage-diff','kurage-stages','kurage-bossdex','kurage-savever','kurage-dailyhide'];
+  const KEYS = ['kurage-best','kurage-pearls','kurage-muted','kurage-skins','kurage-skin','kurage-stats','kurage-claimed','kurage-upgrades','kurage-daily','kurage-jellies','kurage-active','kurage-food','kurage-lastseen','kurage-items','kurage-room','kurage-gametheme','kurage-fish','kurage-a2hs','kurage-diff','kurage-stages','kurage-bossdex','kurage-savever','kurage-dailyhide','kurage-gacha'];
   // Durable storage: localStorage (primary) + IndexedDB (backup mirror).
   // Ask the browser to keep our data across restarts / not auto-evict it.
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
@@ -790,14 +851,14 @@
 
   const SKINS = [
     { id:'pink',   name:'ももいろ',   price:0,   bell:['#ffd6ee','#f0a8d8','#c9a8f5'], glow:'240,168,216', tent:['201,168,245','240,168,216'] },
-    { id:'aqua',   name:'そらいろ',   price:30,  bell:['#d6fbff','#8fe4f5','#5cc8e8'], glow:'140,228,245', tent:['92,200,232','160,240,255'] },
-    { id:'sunset', name:'ゆうやけ',   price:60,  bell:['#ffe6c2','#ffb36b','#ff7e8a'], glow:'255,150,110', tent:['255,140,120','255,190,120'] },
-    { id:'lime',   name:'よるひかり', price:100, bell:['#e6ffd6','#9cf58a','#5ce87e'], glow:'120,240,140', tent:['92,232,126','180,255,140'] },
-    { id:'ghost',  name:'おばけ',     price:180, bell:['#ffffff','#e8f0ff','#c8d4e8'], glow:'220,230,255', tent:['200,215,240','230,240,255'] },
-    { id:'ember',  name:'マグマ',     price:280, bell:['#ffdca8','#ff7a3c','#e8324f'], glow:'255,90,60',   tent:['255,80,60','255,150,60'] },
-    { id:'gold',   name:'こがね',     price:400, bell:['#fff3c4','#ffd166','#e8a020'], glow:'255,200,90',  tent:['255,200,90','255,230,150'] },
-    { id:'deep',   name:'ふかみ',     price:600, bell:['#c9d6ff','#7a8cf5','#5a3fe8'], glow:'130,120,255', tent:['120,110,245','170,150,255'] },
-    { id:'rainbow',name:'にじいろ',   price:900, bell:'rainbow', glow:'255,255,255', tent:'rainbow' }
+    { id:'aqua',   name:'そらいろ',   price:90,  bell:['#d6fbff','#8fe4f5','#5cc8e8'], glow:'140,228,245', tent:['92,200,232','160,240,255'] },
+    { id:'sunset', name:'ゆうやけ',   price:180,  bell:['#ffe6c2','#ffb36b','#ff7e8a'], glow:'255,150,110', tent:['255,140,120','255,190,120'] },
+    { id:'lime',   name:'よるひかり', price:300, bell:['#e6ffd6','#9cf58a','#5ce87e'], glow:'120,240,140', tent:['92,232,126','180,255,140'] },
+    { id:'ghost',  name:'おばけ',     price:540, bell:['#ffffff','#e8f0ff','#c8d4e8'], glow:'220,230,255', tent:['200,215,240','230,240,255'] },
+    { id:'ember',  name:'マグマ',     price:840, bell:['#ffdca8','#ff7a3c','#e8324f'], glow:'255,90,60',   tent:['255,80,60','255,150,60'] },
+    { id:'gold',   name:'こがね',     price:1200, bell:['#fff3c4','#ffd166','#e8a020'], glow:'255,200,90',  tent:['255,200,90','255,230,150'] },
+    { id:'deep',   name:'ふかみ',     price:1800, bell:['#c9d6ff','#7a8cf5','#5a3fe8'], glow:'130,120,255', tent:['120,110,245','170,150,255'] },
+    { id:'rainbow',name:'にじいろ',   price:2700, bell:'rainbow', glow:'255,255,255', tent:'rainbow' }
   ];
   function skinById(id){ return SKINS.find(s=>s.id===id)||SKINS[0]; }
 
@@ -1074,7 +1135,7 @@
   let revivesLeft=0, reviveTimer=0;
   let jellyPearlBonus=1;
   // states that show the living aquarium behind them (home + all menus + opening)
-  const AQUA_STATES = { opening:1, aquarium:1, care:1, hatch:1, select:1, shop:1, upgrades:1, missions:1, data:1, exchange:1, stages:1 };
+  const AQUA_STATES = { opening:1, aquarium:1, care:1, select:1, shop:1, upgrades:1, missions:1, data:1, exchange:1, stages:1 };
 
   const jelly={ x:0,y:0,vy:0,r:22,tilt:0,pulse:0 };
   let pillars=[], items=[], bubbles=[], particles=[], floaters=[], enemies=[], shots=[];
@@ -1189,6 +1250,7 @@
       return;
     }
     if(state==='fishing'){ e.preventDefault(); ensureAudio(); if(fishPhase==='ready') fishStop(); return; }
+    if(state==='gacha'){ e.preventDefault(); ensureAudio(); skipGacha(); return; }
     if(state==='aquarium'){
       const rect=cv.getBoundingClientRect(); const px=e.clientX-rect.left, py=e.clientY-rect.top;
       let hit=null, hd=1e9;
@@ -2106,7 +2168,57 @@
   const JELLY_NAMES=['ぷかり','もこ','ゆらり','たまちゃん','くらりん','ぷに','みるく','こんぶ','しずく','あわ','ぷくぷく','ちび','るか','なぎ','うみ','そら'];
   const STAGE_NAMES=['','ベビー','わかもの','せいたい','ぬし'];
   const STAGE_SCALE=[0,0.72,0.95,1.18,1.45];
-  const ADOPT_COST=60, EGG_COST=90;
+  // ---------- ガチャ ----------
+  // レア度は既存スキンの価格から導く（新しいデータを増やさない）
+  const RARITY = [ null,
+    { n:1, stars:'★',      color:'#9fb6c8', glow:'159,182,200', back:20  },
+    { n:2, stars:'★★',     color:'#8fe4f5', glow:'143,228,245', back:40  },
+    { n:3, stars:'★★★',    color:'#c9a8f5', glow:'201,168,245', back:80  },
+    { n:4, stars:'★★★★',   color:'#ffd166', glow:'255,209,102', back:150 },
+    { n:5, stars:'★★★★★',  color:'#ff9ec4', glow:'255,158,196', back:300 }
+  ];
+  // 価格から導くと値段調整のたびにレア度が動いてしまうので、明示的に持つ
+  const SKIN_RARITY = { pink:1, aqua:1, sunset:2, lime:2, ghost:3, ember:3, gold:4, deep:4, rainbow:5 };
+  function rarityOf(skinId){ return SKIN_RARITY[skinId]||1; }
+  const GACHA_RATES=[0, 0.42, 0.30, 0.18, 0.075, 0.025];   // ★1〜★5
+  const GACHA_ONE=300, GACHA_TEN=2700, PITY_PULLS=30;      // 30回で★5かくてい
+  const ADOPT_COST=200;
+
+  let gachaData = getJSON('kurage-gacha', { pulls:0, sinceTop:0 });
+  function saveGacha(){ store.set('kurage-gacha', JSON.stringify(gachaData)); }
+  function ensureGacha(){
+    if(!gachaData||typeof gachaData!=='object'){ gachaData={pulls:0,sinceTop:0}; }
+    gachaData.pulls=parseInt(gachaData.pulls,10)||0;
+    gachaData.sinceTop=parseInt(gachaData.sinceTop,10)||0;
+  }
+  ensureGacha();
+  function rollRarity(minR){
+    let r=Math.random(), acc=0, out=1;
+    for(let i=1;i<=5;i++){ acc+=GACHA_RATES[i]; if(r<acc){ out=i; break; } out=i; }
+    return Math.max(out, minR||1);
+  }
+  function rollSkin(minR){
+    let rank=rollRarity(minR);
+    gachaData.pulls++; gachaData.sinceTop++;
+    if(gachaData.sinceTop>=PITY_PULLS){ rank=5; }        // 天井
+    if(rank===5) gachaData.sinceTop=0;
+    const pool=SKINS.filter(s=>rarityOf(s.id)===rank);
+    return pool[Math.floor(Math.random()*pool.length)]||SKINS[0];
+  }
+  // 1回ぶんの抽選を確定させ、クラゲを増やす。かぶりは真珠に還元。
+  function resolvePull(minR){
+    const sk=rollSkin(minR), rank=rarityOf(sk.id);
+    const dup=unlocked.includes(sk.id);
+    if(!dup){ unlocked.push(sk.id); store.set('kurage-skins',JSON.stringify(unlocked)); }
+    const j=makeJelly(sk.id); jellies.push(j); saveJellies();
+    let back=0;
+    if(dup){ back=RARITY[rank].back; addPearls(back,true); }
+    return { skin:sk, rank, dup, back, jelly:j };
+  }
+  function spendPearls(n){
+    if(pearls<n){ showToast('真珠が足りないよ（'+n+'ひつよう）'); return false; }
+    pearls-=n; store.set('kurage-pearls',String(pearls)); pearlHud.textContent=pearls; return true;
+  }
 
   function newId(){ return 'j'+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36); }
   function makeJelly(skinId,name){ return { id:newId(), name:name||JELLY_NAMES[Math.floor(Math.random()*JELLY_NAMES.length)], skinId:skinId||'pink', exp:0, hunger:80, mood:80, clean:80, acc:'', bornAt:Date.now() }; }
@@ -2134,7 +2246,25 @@
     store.set('kurage-lastseen', String(now));
   }
 
-  function initTank(){ ensureJellies(); for(const j of jellies){ j.ax=W*(0.2+0.6*Math.random()); j.ay=H*(0.28+0.42*Math.random()); j.avx=(Math.random()-0.5)*0.8; j.avy=(Math.random()-0.5)*0.5; j.phase=Math.random()*Math.PI*2; } }
+  // 10連で一気に増えても水槽が渋滞しないよう、泳がせる数に上限をつける
+  // （ax が未設定の子は step/draw/タップ判定すべてから自動的に外れる）
+  const TANK_MAX=16;
+  function tankShown(){
+    if(!jellies) return [];
+    if(jellies.length<=TANK_MAX) return jellies;
+    const act=activeJelly();
+    const rest=jellies.filter(j=>j!==act).slice(-(TANK_MAX-(act?1:0)));
+    return act?[act].concat(rest):rest;
+  }
+  function initTank(){
+    ensureJellies();
+    const show=new Set(tankShown());
+    for(const j of jellies){
+      if(!show.has(j)){ j.ax=null; continue; }
+      j.ax=W*(0.2+0.6*Math.random()); j.ay=H*(0.28+0.42*Math.random());
+      j.avx=(Math.random()-0.5)*0.8; j.avy=(Math.random()-0.5)*0.5; j.phase=Math.random()*Math.PI*2;
+    }
+  }
   function stepAquarium(){
     t+=1;
     for(const b of bubbles){ b.y-=b.s; if(b.y<-10){ b.y=H+10; b.x=Math.random()*W; } }
@@ -2199,7 +2329,8 @@
     document.getElementById('home-rank').textContent='🪼 '+titleFor(best);
     document.getElementById('home-pearls').textContent=pearls;
     document.getElementById('home-food').textContent=food;
-    document.getElementById('home-count').textContent=jellies?jellies.length:0;
+    const jn=jellies?jellies.length:0;
+    document.getElementById('home-count').textContent=jn+(jn>TANK_MAX?'（水槽には'+TANK_MAX+'ひきまで）':'');
     document.getElementById('home-mute').textContent=muted?'🔇':'🔊';
     const fb=document.getElementById('home-fish');
     if(fb){ const av=fishAvailable(); fb.textContent=av?'🎣 つり ✨':'🎣 つり済'; fb.disabled=!av; }
@@ -2261,20 +2392,198 @@
   }
   function careSetActive(){ const j=caringJelly(); if(!j) return; activeId=j.id; saveActive(); sfx.coin(); renderCare(); showToast(j.name+' を出撃メンバーにしたよ'); }
 
-  function drawEgg(canvasId){ const c=document.getElementById(canvasId); if(!c) return; const g=c.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,c.width,c.height); g.save(); g.translate(c.width/2,c.height/2); g.rotate(Math.sin(t*0.05)*0.06); const grd=g.createRadialGradient(-8,-12,4,0,0,44); grd.addColorStop(0,'#fff'); grd.addColorStop(.6,'#ffe9f3'); grd.addColorStop(1,'#f0a8d8'); g.fillStyle=grd; g.beginPath(); g.ellipse(0,4,32,40,0,0,Math.PI*2); g.fill(); g.fillStyle='rgba(201,168,245,0.5)'; for(let i=0;i<4;i++){ g.beginPath(); g.arc(-14+i*9,10+((i%2)?6:-4),3,0,Math.PI*2); g.fill(); } g.restore(); }
-  function renderHatch(){ document.getElementById('hatch-pearls').textContent=pearls; var _hc=document.getElementById('hatch-cost'); if(_hc) _hc.textContent=EGG_COST; }
-  function openHatch(){ prevState='aquarium'; state='hatch'; hideAllScreens(); topbar.classList.add('hidden'); hatchEl.classList.remove('hidden'); document.getElementById('hatch-result').textContent=''; drawEgg('hatch-canvas'); renderHatch(); hatchEl.scrollTop=0; }
-  function doHatch(){
-    if(pearls<EGG_COST){ showToast('真珠が足りないよ（'+EGG_COST+'ひつよう）'); return; }
-    pearls-=EGG_COST; store.set('kurage-pearls',String(pearls)); pearlHud.textContent=pearls;
-    const ids=SKINS.map(s=>s.id); const skinId=ids[Math.floor(Math.random()*ids.length)];
-    if(!unlocked.includes(skinId)){ unlocked.push(skinId); store.set('kurage-skins',JSON.stringify(unlocked)); }
-    const j=makeJelly(skinId); jellies.push(j); saveJellies();
-    sfx.win(); vibrate([20,30,40]);
-    drawIntoCanvas('hatch-canvas', skinById(skinId), 1.7);
-    document.getElementById('hatch-result').innerHTML='🎉 <b style="color:#eaf6ff">'+j.name+'</b>（'+skinById(skinId).name+'）が うまれた！';
-    renderHatch(); refreshHome();
+  // ---------- ガチャ画面と演出 ----------
+  // 卵がふるえる → ひびが入る → 光がもれる（レアほど強い） → 割れる → お披露目
+  const G_SHAKE=84, G_BURST=26, G_REVEAL=64, G_CY=0.36;   // G_CY: 卵とクラゲを描く高さ（CSSの #gacha-reveal と対応）
+  let gPhase='idle', gFrame=0, gQueue=[], gCur=null, gTop=1, gShards=[], gSparks=[];
+
+  function drawGachaEgg(cx,cy,scale,shakeAmt,cracks,leak,leakColor){
+    ctx.save(); ctx.translate(cx,cy);
+    if(shakeAmt>0) ctx.translate((Math.random()-0.5)*shakeAmt,(Math.random()-0.5)*shakeAmt*0.6);
+    ctx.rotate(Math.sin(t*0.05)*0.05+ (shakeAmt>0?Math.sin(t*0.9)*0.05*shakeAmt/6:0));
+    ctx.scale(scale,scale);
+    if(leak>0){                                   // 中からもれる光
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const gl=ctx.createRadialGradient(0,0,4,0,0,120);
+      gl.addColorStop(0,`rgba(${leakColor},${0.5*leak})`); gl.addColorStop(1,`rgba(${leakColor},0)`);
+      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(0,0,120,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    const grd=ctx.createRadialGradient(-14,-20,6,0,0,72);
+    grd.addColorStop(0,'#ffffff'); grd.addColorStop(.55,'#ffe9f3'); grd.addColorStop(1,'#f0a8d8');
+    ctx.fillStyle=grd; ctx.beginPath(); ctx.ellipse(0,6,52,64,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(201,168,245,0.45)';
+    for(let i=0;i<5;i++){ ctx.beginPath(); ctx.arc(-26+i*13,16+((i%2)?10:-8),5,0,Math.PI*2); ctx.fill(); }
+    if(cracks>0){                                  // ひび
+      ctx.strokeStyle='rgba(90,60,90,0.75)'; ctx.lineWidth=2.4; ctx.lineCap='round';
+      const paths=[[[-6,-46],[2,-26],[-8,-10],[4,6]],[[-34,-6],[-16,2],[-24,18],[-8,28]],[[28,-18],[14,-2],[26,12],[12,26]]];
+      for(let k=0;k<Math.min(cracks,3);k++){ const pts=paths[k]; ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+        for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]); ctx.stroke();
+        if(leak>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle=`rgba(${leakColor},${0.85*leak})`; ctx.lineWidth=1.4; ctx.stroke(); ctx.restore(); }
+      }
+    }
+    ctx.restore();
   }
+  function gachaBurst(cx,cy,rank){
+    const col=RARITY[rank].glow;
+    gShards=[]; gSparks=[];
+    for(let i=0;i<14;i++){ const a=Math.random()*Math.PI*2, sp=2+Math.random()*5;
+      gShards.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-2, r:5+Math.random()*7, rot:Math.random()*6, vr:(Math.random()-0.5)*0.3, life:1 }); }
+    for(let i=0;i<34+rank*8;i++){ const a=Math.random()*Math.PI*2, sp=1.5+Math.random()*(4+rank);
+      gSparks.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, r:1.5+Math.random()*3, life:1, col }); }
+    flash=Math.min(1, 0.45+rank*0.12); shake=6+rank*3;
+    if(rank>=4){ sfx.win(); setTimeout(()=>sfx.win(),180); } else sfx.power();
+    vibrate(rank>=4?[25,40,25,40,25]:[20,30]);
+  }
+  function drawGacha(){
+    const cx=W*0.5, cy=H*G_CY;
+    const grad=ctx.createLinearGradient(0,0,0,H); grad.addColorStop(0,'#0b1430'); grad.addColorStop(1,'#04060f');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    ctx.save(); if(shake>0.5) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+    drawGodRays('170,190,255',0.05,0,H*0.9);
+    ctx.save(); for(const b of bubbles){ ctx.globalAlpha=0.16; ctx.strokeStyle='rgba(180,205,255,0.5)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke(); } ctx.restore();
+    const rank=gCur?gCur.rank:gTop, col=RARITY[rank].glow;
+
+    if(gPhase==='idle'){
+      drawGachaEgg(cx, cy+Math.sin(t*0.04)*7, 1, 0, 0, 0, col);
+    } else if(gPhase==='shake'){
+      const p=gFrame/G_SHAKE;
+      const cracks=gFrame>66?3:gFrame>48?2:gFrame>28?1:0;
+      const leak=cracks>0 ? Math.min(1,(gFrame-28)/50)*(rank>=4?1:0.55) : 0;
+      drawGachaEgg(cx, cy+Math.sin(t*0.04)*7, 1+p*0.12, 2+p*10, cracks, leak, col);
+      if(rank>=4 && gFrame>50 && gFrame%4===0){    // レアは光の粒が舞う
+        gSparks.push({ x:cx+(Math.random()-0.5)*90, y:cy+(Math.random()-0.5)*90, vx:0, vy:-0.6-Math.random(), r:1.5+Math.random()*2, life:1, col });
+      }
+    } else if(gPhase==='burst'){
+      const p=gFrame/G_BURST;
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const rr=(0.2+p*1.1)*Math.min(W,H)*0.6;
+      const gl=ctx.createRadialGradient(cx,cy,1,cx,cy,rr);
+      gl.addColorStop(0,`rgba(${col},${0.7*(1-p)})`); gl.addColorStop(1,`rgba(${col},0)`);
+      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(cx,cy,rr,0,Math.PI*2); ctx.fill();
+      for(let i=0;i<8+rank*2;i++){                 // 放射状の光
+        const a=i/(8+rank*2)*Math.PI*2+t*0.01, len=rr*(0.7+0.3*Math.sin(i*3));
+        ctx.strokeStyle=`rgba(${col},${0.5*(1-p)})`; ctx.lineWidth=3+rank;
+        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*len, cy+Math.sin(a)*len); ctx.stroke();
+      }
+      ctx.restore();
+    } else if(gPhase==='reveal' && gCur){
+      const p=Math.min(1,gFrame/26), e=1-Math.pow(1-p,3);
+      const over=1+Math.sin(Math.min(1,gFrame/26)*Math.PI)*0.18;    // ぷるんと出る
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const gl=ctx.createRadialGradient(cx,cy,4,cx,cy,150);
+      gl.addColorStop(0,`rgba(${col},${0.35+0.1*Math.sin(t*0.1)})`); gl.addColorStop(1,`rgba(${col},0)`);
+      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(cx,cy,150,0,Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.translate(cx, cy+(1-e)*40); const sc=(0.4+e*1.3)*over;
+      ctx.scale(sc,sc); ctx.rotate(Math.sin(t*0.03)*0.08);
+      drawJellyPreview(ctx, skinById(gCur.skin.id), '');
+      ctx.restore();
+    }
+    for(const s of gShards){ ctx.save(); ctx.globalAlpha=Math.max(0,s.life); ctx.translate(s.x,s.y); ctx.rotate(s.rot);
+      ctx.fillStyle='#ffe9f3'; ctx.beginPath(); ctx.moveTo(-s.r,-s.r*0.6); ctx.lineTo(s.r,-s.r*0.3); ctx.lineTo(s.r*0.4,s.r); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    for(const s of gSparks){ ctx.globalAlpha=Math.max(0,s.life)*0.9; ctx.fillStyle=`rgba(${s.col},1)`; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1; ctx.restore();
+    if(flash>0){ ctx.fillStyle=`rgba(255,255,255,${flash*0.55})`; ctx.fillRect(0,0,W,H); }
+  }
+  function stepGacha(){
+    t+=1;
+    if(shake>0) shake*=0.86; if(flash>0) flash-=0.06;
+    for(const b of bubbles){ b.y-=b.s; if(b.y<-10){ b.y=H+10; b.x=Math.random()*W; } }
+    for(const s of gShards){ s.x+=s.vx; s.y+=s.vy; s.vy+=0.22; s.rot+=s.vr; s.life-=0.018; }
+    if(gShards.length) gShards=gShards.filter(s=>s.life>0);
+    for(const s of gSparks){ s.x+=s.vx; s.y+=s.vy; s.vy+=0.02; s.life-=0.016; }
+    if(gSparks.length) gSparks=gSparks.filter(s=>s.life>0);
+    if(gPhase==='idle') return;
+    gFrame++;
+    if(gPhase==='shake' && gFrame>=G_SHAKE){ gPhase='burst'; gFrame=0; gachaBurst(W*0.5,H*G_CY, gCur?gCur.rank:gTop); }
+    else if(gPhase==='burst' && gFrame>=G_BURST){ gFrame=0; if(gQueue.length>1) showTenResult(); else showOneResult(); }
+    else if(gPhase==='reveal' && gFrame>=G_REVEAL){ /* そのまま待つ */ }
+  }
+  function skipGacha(){
+    if(gPhase==='shake'){ gFrame=G_SHAKE-1; }
+    else if(gPhase==='burst'){ gFrame=G_BURST-1; }
+  }
+
+  function renderGacha(){
+    document.getElementById('gacha-pearls').textContent=pearls;
+    document.getElementById('cost-one').textContent=GACHA_ONE;
+    document.getElementById('cost-ten').textContent=GACHA_TEN;
+    const left=Math.max(0,PITY_PULLS-gachaData.sinceTop);
+    document.getElementById('gacha-pity').textContent='あと '+left+' 回で ★★★★★ かくてい（これまで '+gachaData.pulls+' 回）';
+    document.getElementById('gacha-one').disabled=pearls<GACHA_ONE;
+    document.getElementById('gacha-ten').disabled=pearls<GACHA_TEN;
+    document.getElementById('gacha-note').innerHTML='★5 2.5% ・ ★4 7.5% ・ ★3 18% ・ ★2 30% ・ ★1 42%<br>もっている子とかぶったら 真珠にかえるよ';
+  }
+  function openGacha(){
+    ensureAudio(); prevState='aquarium'; state='gacha';
+    hideAllScreens(); topbar.classList.add('hidden');
+    gPhase='idle'; gFrame=0; gQueue=[]; gCur=null; gTop=1; gShards=[]; gSparks=[];
+    document.getElementById('gacha-reveal').classList.add('hide');
+    document.getElementById('gacha-btns').style.display='';
+    gachaEl.classList.remove('hidden');
+    renderGacha();
+  }
+  function startPull(count){
+    const cost=count>=10?GACHA_TEN:GACHA_ONE;
+    if(!spendPearls(cost)) return;
+    gQueue=[];
+    for(let i=0;i<count;i++) gQueue.push(resolvePull(0));
+    if(count>=10){                                   // 10連は★3以上を1体保証
+      if(!gQueue.some(r=>r.rank>=3)){
+        const idx=Math.floor(Math.random()*gQueue.length);
+        const old=gQueue[idx];
+        jellies=jellies.filter(j=>j!==old.jelly);      // 保証ぶんと差し替え
+        gQueue[idx]=resolvePull(3);
+        saveJellies();
+      }
+    }
+    saveGacha();
+    gTop=gQueue.reduce((m,r)=>Math.max(m,r.rank),1);
+    gCur=count>=10?null:gQueue[0];
+    gPhase='shake'; gFrame=0;
+    document.getElementById('gacha-btns').style.display='none';
+    document.getElementById('gacha-reveal').classList.add('hide');
+    sfx.coin();
+  }
+  function showOneResult(){
+    gPhase='reveal'; gFrame=0;
+    const r=gCur, rr=RARITY[r.rank];
+    const el=document.getElementById('gacha-reveal');
+    const st=document.getElementById('rv-stars'); st.textContent=rr.stars; st.style.color=rr.color;
+    st.style.textShadow='0 0 16px rgba('+rr.glow+',.9)';
+    document.getElementById('rv-name').textContent=r.jelly.name;
+    document.getElementById('rv-skin').textContent=r.skin.name+(r.dup?'':'　✨ ずかんに新登場！');
+    document.getElementById('rv-dup').textContent=r.dup?('かぶり → 🫧 '+r.back+' にかえた'):'';
+    el.classList.remove('hide');
+    document.getElementById('gacha-btns').style.display='';
+    renderGacha(); refreshHome();
+  }
+  function grCell(r){
+    const rr=RARITY[r.rank];
+    const cell=document.createElement('div'); cell.className='gr-cell'+(r.dup?'':' new');
+    cell.style.animationDelay=(Math.random()*0.1)+'s';
+    cell.style.borderColor='rgba('+rr.glow+',.55)';
+    const c=document.createElement('canvas'); c.width=100; c.height=100;
+    const g=c.getContext('2d'); g.translate(50,54); g.scale(0.92,0.92); drawJellyPreview(g, skinById(r.skin.id), '');
+    cell.appendChild(c);
+    const st=document.createElement('div'); st.className='st'; st.textContent=rr.stars; st.style.color=rr.color; cell.appendChild(st);
+    const nm=document.createElement('div'); nm.className='nm'; nm.textContent=r.skin.name;
+    if(!r.dup){ nm.textContent='✨'+r.skin.name; nm.style.color='var(--glow-cyan)'; nm.style.fontWeight='800'; }
+    cell.appendChild(nm);
+    return cell;
+  }
+  function showTenResult(){
+    gPhase='idle';
+    const grid=document.getElementById('gr-grid'); grid.innerHTML='';
+    let news=0, back=0;
+    for(const r of gQueue){ grid.appendChild(grCell(r)); if(!r.dup) news++; back+=r.back; }
+    document.getElementById('gr-summary').textContent='✨ あたらしく '+news+' 種 ・ 最高 '+RARITY[gTop].stars;
+    document.getElementById('gr-note').textContent=back>0?('かぶり ぶんで 🫧 '+back+' もどってきたよ'):'';
+    document.getElementById('gacha-result').classList.remove('hidden');
+    document.getElementById('gacha-btns').style.display='';
+    renderGacha(); refreshHome();
+  }
+  function closeTenResult(){ document.getElementById('gacha-result').classList.add('hidden'); gQueue=[]; renderGacha(); }
+
   function adoptSkin(skinId){ if(pearls<ADOPT_COST){ showToast('真珠が足りないよ（'+ADOPT_COST+'ひつよう）'); return false; } pearls-=ADOPT_COST; store.set('kurage-pearls',String(pearls)); pearlHud.textContent=pearls; const j=makeJelly(skinId); jellies.push(j); saveJellies(); sfx.win(); vibrate(30); showToast('🥚 '+j.name+'（'+skinById(skinId).name+'）を むかえた！'); refreshHome(); return true; }
 
   // ===================== ミニゲーム①：こけとり =====================
@@ -2698,7 +3007,7 @@
     showToast(item.name+' を手に入れた！'); refreshHome(); renderExchange();
   }
 
-  function hideAllScreens(){ hideStageIntro(); screenTitle.classList.add('hidden'); screenOver.classList.add('hidden'); shopEl.classList.add('hidden'); upgEl.classList.add('hidden'); misEl.classList.add('hidden'); dataEl.classList.add('hidden'); aquaEl.classList.add('hidden'); careEl.classList.add('hidden'); hatchEl.classList.add('hidden'); selEl.classList.add('hidden'); openingEl.classList.add('hidden'); exEl.classList.add('hidden'); scrubEl.classList.add('hidden'); fishEl.classList.add('hidden'); document.getElementById('stages').classList.add('hidden'); document.getElementById('stageclear').classList.add('hidden'); document.getElementById('ex-preview').classList.add('hidden'); exPrevOpen=false; document.getElementById('rename-modal').classList.add('hidden'); }
+  function hideAllScreens(){ hideStageIntro(); screenTitle.classList.add('hidden'); screenOver.classList.add('hidden'); shopEl.classList.add('hidden'); upgEl.classList.add('hidden'); misEl.classList.add('hidden'); dataEl.classList.add('hidden'); aquaEl.classList.add('hidden'); careEl.classList.add('hidden'); gachaEl.classList.add('hidden'); document.getElementById('gacha-result').classList.add('hidden'); selEl.classList.add('hidden'); openingEl.classList.add('hidden'); exEl.classList.add('hidden'); scrubEl.classList.add('hidden'); fishEl.classList.add('hidden'); document.getElementById('stages').classList.add('hidden'); document.getElementById('stageclear').classList.add('hidden'); document.getElementById('ex-preview').classList.add('hidden'); exPrevOpen=false; document.getElementById('rename-modal').classList.add('hidden'); }
   function openPanel(which){
     prevState=(state==='over')?'over':'aquarium'; state=which; ensureAudio();
     hideAllScreens(); topbar.classList.add('hidden');
@@ -2747,7 +3056,7 @@
 
   // home aquarium nav
   document.getElementById('home-play').addEventListener('click',openStages);
-  document.getElementById('home-hatch').addEventListener('click',openHatch);
+  document.getElementById('home-hatch').addEventListener('click',openGacha);
   document.getElementById('home-fish').addEventListener('click',openFishing);
   document.getElementById('home-daily').addEventListener('click',()=>setDailyHidden(false));
   document.getElementById('scrub-quit').addEventListener('click',(e)=>{ e.stopPropagation(); scrubFinish(); });
@@ -2784,8 +3093,10 @@
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushSave(); });
   document.getElementById('care-active').addEventListener('click',careSetActive);
   document.getElementById('care-go').addEventListener('click',()=>{ const j=caringJelly(); if(j) playWith(j); });
-  // hatch
-  document.getElementById('hatch-buy').addEventListener('click',doHatch);
+  // gacha
+  document.getElementById('gacha-one').addEventListener('click',(e)=>{ e.stopPropagation(); startPull(1); });
+  document.getElementById('gacha-ten').addEventListener('click',(e)=>{ e.stopPropagation(); startPull(10); });
+  document.getElementById('gr-close').addEventListener('click',(e)=>{ e.stopPropagation(); closeTenResult(); });
 
   document.getElementById('copy-code').addEventListener('click',async ()=>{
     const code=document.getElementById('export-code').value;
@@ -2804,7 +3115,7 @@
   });
 
   const muteBtn=document.getElementById('mute-btn');
-  function applyMute(){ muteBtn.textContent=muted?'🔇':'🔊'; store.set('kurage-muted',muted?'1':'0'); if(muted){ stopBGM(); stopHealing(); } else if(state==='play') startBGM(); else if(AQUA_STATES[state]||state==='opening'||state==='scrub'||state==='fishing'||state==='clear') startHealing(); }
+  function applyMute(){ muteBtn.textContent=muted?'🔇':'🔊'; store.set('kurage-muted',muted?'1':'0'); if(muted){ stopBGM(); stopHealing(); } else if(state==='play') startBGM(); else if(AQUA_STATES[state]||state==='opening'||state==='scrub'||state==='fishing'||state==='gacha'||state==='clear') startHealing(); }
   muteBtn.addEventListener('click',(e)=>{ e.stopPropagation(); muted=!muted; applyMute(); });
   muteBtn.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); muted=!muted; applyMute(); } });
   applyMute();
@@ -2818,6 +3129,7 @@
 
   function step(){
     if(state==='scrub') stepScrub();
+    else if(state==='gacha') stepGacha();
     else if(state==='fishing') stepFishing();
     else if(AQUA_STATES[state]) stepAquarium();
     else if(state==='title'){
@@ -2831,6 +3143,7 @@
     while(acc>=STEP_MS&&n<4){ step(); acc-=STEP_MS; n++; }
     if(acc>=STEP_MS) acc=0;
     if(state==='scrub') drawScrub();
+    else if(state==='gacha') drawGacha();
     else if(state==='fishing') drawFishing();
     else if(AQUA_STATES[state]) drawAquarium();
     else draw();
@@ -2839,7 +3152,7 @@
     requestAnimationFrame(loop);
   }
 
-  window.__kurageStep=(k)=>{ for(let i=0;i<k;i++) step(); if(state==='scrub') drawScrub(); else if(state==='fishing') drawFishing(); else if(AQUA_STATES[state]) drawAquarium(); else draw(); };
+  window.__kurageStep=(k)=>{ for(let i=0;i<k;i++) step(); if(state==='scrub') drawScrub(); else if(state==='gacha') drawGacha(); else if(state==='fishing') drawFishing(); else if(AQUA_STATES[state]) drawAquarium(); else draw(); };
   window.__kurageDebug=()=>({ state, score, pearls, food, runPearls, runBosses, combo, bossActive, boss: boss?{x:boss.x,y:boss.y,timer:boss.timer,fleeing:boss.fleeing,tier:boss.tier}:null,
     revivesLeft, jellyPearlBonus, jellyY:jelly.y, jellyX:jelly.x, vy:jelly.vy, power:{...power},
     activeId, jellies:(jellies||[]).map(j=>({id:j.id,name:j.name,skin:j.skinId,exp:j.exp,lv:levelOf(j),stage:stageIndex(j),hunger:j.hunger,mood:j.mood,clean:j.clean})),
@@ -2870,6 +3183,10 @@
   window.__kurageStageReset=()=>{ stageData={unlocked:1,rec:{}}; saveStages(); refreshHome(); };
   window.__kurageDex=()=>({ found:dexCount(), dex:JSON.parse(JSON.stringify(bossDex)) });
   window.__kurageDexReset=()=>{ bossDex={}; saveDex(); };
+  window.__kurageGacha=()=>({ phase:gPhase, frame:gFrame, queue:gQueue.length, top:gTop,
+    cur:gCur?{skin:gCur.skin.id, rank:gCur.rank, dup:gCur.dup, back:gCur.back}:null,
+    pulls:gachaData.pulls, sinceTop:gachaData.sinceTop, cost:{one:GACHA_ONE,ten:GACHA_TEN,adopt:ADOPT_COST} });
+  window.__kurageGachaRoll=(n)=>{ const out={1:0,2:0,3:0,4:0,5:0}; for(let i=0;i<n;i++){ const sk=rollSkin(0); out[rarityOf(sk.id)]++; } saveGacha(); return out; };
   window.__kurageVis=()=>({ ...stageDef().vis, stage:curStage, boss:stageDef().bossId, bgm:bgmSet().ms });
   window.__kurageDexAll=()=>{ for(const s of STAGES){ registerBossKill(s.bossId); recordBossTime(s.bossId, 60000+s.n*9000); } };
   window.__kurageBuy=(id,lvl)=>{ upgrades[id]=lvl; saveUpgrades(); };
