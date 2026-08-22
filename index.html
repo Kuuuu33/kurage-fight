@@ -257,6 +257,9 @@
     gap: 12px; text-align: center; padding: 24px; pointer-events: none;
   }
   .overlay.hidden { display: none; }
+  .howto{margin-top:10px;font-size:11px;color:rgba(255,255,255,.5);text-decoration:none;
+    pointer-events:auto;padding:8px 12px;letter-spacing:.04em}
+  .howto:active{color:rgba(255,255,255,.85)}
   .overlay > * { pointer-events: auto; }
   .title {
     font-size: clamp(30px, 8vw, 48px); font-weight: 800; color: var(--jelly-pink); margin: 0; letter-spacing: .05em;
@@ -503,6 +506,7 @@
       <button class="btn small" id="title-mis">🎯 ミッション</button>
       <button class="btn small" id="title-data">💾 データ</button>
     </div>
+    <a class="howto" href="https://note.com/claude_lab_kuu/n/n8d60d5574f5e?ref=kurage" target="_blank" rel="noopener">このゲームの作り方を読む →</a>
   </div>
 
   <!-- Game over -->
@@ -1456,7 +1460,7 @@
   // Tapping the screen only affects live gameplay (flap) and the revive prompt.
   // Starting / restarting is done with the on-screen buttons, so a stray tap can't begin a run.
   wrap.addEventListener('pointerdown',(e)=>{
-    if(e.target.closest('button, [role="button"], .skin-card, .claim-btn, .up-buy, .acc-chip, .ex-btn, .ex-tab, textarea')) return;
+    if(e.target.closest('button, [role="button"], .skin-card, .claim-btn, .up-buy, .acc-chip, .ex-btn, .ex-tab, textarea, .howto')) return;
     if(state==='opening'){ enterFromOpening(); return; }
     if(state==='scrub'){
       if(!scrubActive) return;
